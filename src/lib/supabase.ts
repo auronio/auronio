@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { QrRecord } from '../types';
 
-const SUPABASE_URL = 'https://supabase.co';
+const SUPABASE_URL = 'https://qfqekeeoppgsvyixqhkt.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_SbwA2eaodd_xfYkzPZgTVw_DpWJMKoh';
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
