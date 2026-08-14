@@ -19,13 +19,13 @@ export const EnterpriseModal: React.FC<EnterpriseModalProps> = ({ isOpen, onClos
   if (!isOpen) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setSubmitted(true);
-    setTimeout(() => {
-      setSubmitted(false);
-      onClose();
-    }, 3000);
-  };
+  e.preventDefault();
+  setSubmitted(true);
+  setTimeout(() => {
+    setSubmitted(false);
+    onClose();
+  }, 3000);
+};
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-sm animate-fadeIn">
