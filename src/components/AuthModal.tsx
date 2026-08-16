@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, User, Mail, Lock, UserCheck, ArrowRight, Sparkles, LogIn } from 'lucide-react';
 import { AuthUser } from '../types';
+import { supabase } from '../lib/supabase';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -10,7 +11,10 @@ interface AuthModalProps {
 
 export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuccess }) => {
   const [activeTab, setActiveTab] = useState<'register' | 'login'>('register');
-  
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [confirmationSent, setConfirmationSent] = useState(false);
+
   // Registration form
   const [regName, setRegName] = useState('');
   const [regEmail, setRegEmail] = useState('');
@@ -29,37 +33,74 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
     return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
   };
 
-  const handleRegisterSubmit = (e: React.FormEvent) => {
+  const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const name = regName.trim() || 'Boštjan Žlogar';
-    const email = regEmail.trim() || 'bostjan.zlogar@auronio.si';
-    const initials = extractInitials(name);
+    setError(null);
+    setLoading(true);
 
-    onAuthSuccess({
-      name,
-      email,
-      initials,
+    const { data, error: signUpError } = await supabase.auth.signUp({
+      email: regEmail.trim(),
+      password: regPassword,
+      options: {
+        data: { name: regName.trim() },
+      },
     });
-    onClose();
+
+    setLoading(false);
+
+    if (signUpError) {
+      if (signUpError.message.toLowerCase().includes('already registered')) {
+        setError('Ta email je že registriran. Poskusi se prijaviti namesto tega.');
+      } else {
+        setError(signUpError.message);
+      }
+      return;
+    }
+
+    // If there is no session yet, the project requires email confirmation.
+    if (data.user && !data.session) {
+      setConfirmationSent(true);
+      return;
+    }
+
+    if (data.user) {
+      onAuthSuccess({
+        id: data.user.id,
+        name: regName.trim(),
+        email: regEmail.trim(),
+        initials: extractInitials(regName),
+      });
+      onClose();
+    }
   };
 
-  const handleLoginSubmit = (e: React.FormEvent) => {
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const email = loginEmail.trim() || 'bostjan.zlogar@auronio.si';
-    const inferredName = email.split('@')[0].replace(/[._]/g, ' ');
-    const formattedName = inferredName
-      .split(' ')
-      .map(p => p.charAt(0).toUpperCase() + p.slice(1))
-      .join(' ') || 'Boštjan Žlogar';
-    
-    const initials = extractInitials(formattedName);
+    setError(null);
+    setLoading(true);
 
-    onAuthSuccess({
-      name: formattedName,
-      email,
-      initials,
+    const { data, error: signInError } = await supabase.auth.signInWithPassword({
+      email: loginEmail.trim(),
+      password: loginPassword,
     });
-    onClose();
+
+    setLoading(false);
+
+    if (signInError) {
+      setError('Napačen email ali geslo.');
+      return;
+    }
+
+    if (data.user) {
+      const name = (data.user.user_metadata?.name as string) || data.user.email?.split('@')[0] || 'Uporabnik';
+      onAuthSuccess({
+        id: data.user.id,
+        name,
+        email: data.user.email || loginEmail.trim(),
+        initials: extractInitials(name),
+      });
+      onClose();
+    }
   };
 
   return (
@@ -87,151 +128,171 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
           </p>
         </div>
 
-        {/* Navigation Tabs */}
-        <div className="grid grid-cols-2 p-1 bg-stone-100 rounded-2xl border border-stone-200/80">
-          <button
-            type="button"
-            onClick={() => setActiveTab('register')}
-            className={`py-2 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 ${
-              activeTab === 'register'
-                ? 'bg-white text-[#0066CC] shadow-xs'
-                : 'text-stone-600 hover:text-stone-900'
-            }`}
-          >
-            <UserCheck className="w-3.5 h-3.5" />
-            Registracija
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('login')}
-            className={`py-2 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 ${
-              activeTab === 'login'
-                ? 'bg-white text-[#0066CC] shadow-xs'
-                : 'text-stone-600 hover:text-stone-900'
-            }`}
-          >
-            <LogIn className="w-3.5 h-3.5" />
-            Prijava
-          </button>
-        </div>
-
-        {/* TAB 1: REGISTRACIJA */}
-        {activeTab === 'register' && (
-          <form onSubmit={handleRegisterSubmit} className="space-y-4">
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-stone-700 mb-1.5">
-                Ime in priimek
-              </label>
-              <div className="relative">
-                <input
-                  type="text"
-                  required
-                  value={regName}
-                  onChange={(e) => setRegName(e.target.value)}
-                  placeholder="npr. Boštjan Žlogar"
-                  className="w-full pl-9 pr-3.5 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs text-stone-900 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
-                />
-                <User className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-stone-700 mb-1.5">
-                E-mail naslov
-              </label>
-              <div className="relative">
-                <input
-                  type="email"
-                  required
-                  value={regEmail}
-                  onChange={(e) => setRegEmail(e.target.value)}
-                  placeholder="ime@podjetje.si"
-                  className="w-full pl-9 pr-3.5 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs text-stone-900 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
-                />
-                <Mail className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-stone-700 mb-1.5">
-                Geslo
-              </label>
-              <div className="relative">
-                <input
-                  type="password"
-                  required
-                  value={regPassword}
-                  onChange={(e) => setRegPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full pl-9 pr-3.5 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs text-stone-900 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
-                />
-                <Lock className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              </div>
-            </div>
-
-            <div className="pt-2">
-              <button
-                type="submit"
-                className="w-full py-3 px-4 bg-[#0066CC] hover:bg-[#0052A3] active:scale-[0.98] text-white font-bold rounded-2xl text-xs shadow-md transition-all flex items-center justify-center gap-2"
-              >
-                <span>Ustvarite brezplačen račun</span>
-                <ArrowRight className="w-4 h-4" />
-              </button>
-            </div>
-
-            <p className="text-[11px] text-stone-500 text-center">
-              Z registracijo se strinjate s pogoij uporabe in varstvom podatkov.
+        {confirmationSent ? (
+          <div className="p-6 bg-blue-50 border border-blue-200 rounded-2xl text-center space-y-2">
+            <Mail className="w-10 h-10 text-blue-600 mx-auto" />
+            <h4 className="text-sm font-bold text-blue-900">Preveri svoj email!</h4>
+            <p className="text-xs text-blue-700">
+              Poslali smo potrditveno povezavo na {regEmail}. Klikni nanjo, nato se lahko prijaviš.
             </p>
-          </form>
-        )}
-
-        {/* TAB 2: PRIJAVA */}
-        {activeTab === 'login' && (
-          <form onSubmit={handleLoginSubmit} className="space-y-4">
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-stone-700 mb-1.5">
-                E-mail naslov
-              </label>
-              <div className="relative">
-                <input
-                  type="email"
-                  required
-                  value={loginEmail}
-                  onChange={(e) => setLoginEmail(e.target.value)}
-                  placeholder="ime@podjetje.si"
-                  className="w-full pl-9 pr-3.5 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs text-stone-900 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
-                />
-                <Mail className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-stone-700 mb-1.5">
-                Geslo
-              </label>
-              <div className="relative">
-                <input
-                  type="password"
-                  required
-                  value={loginPassword}
-                  onChange={(e) => setLoginPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full pl-9 pr-3.5 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs text-stone-900 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
-                />
-                <Lock className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              </div>
-            </div>
-
-            <div className="pt-2">
+          </div>
+        ) : (
+          <>
+            {/* Navigation Tabs */}
+            <div className="grid grid-cols-2 p-1 bg-stone-100 rounded-2xl border border-stone-200/80">
               <button
-                type="submit"
-                className="w-full py-3 px-4 bg-[#0066CC] hover:bg-[#0052A3] active:scale-[0.98] text-white font-bold rounded-2xl text-xs shadow-md transition-all flex items-center justify-center gap-2"
+                type="button"
+                onClick={() => { setActiveTab('register'); setError(null); }}
+                className={`py-2 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 ${
+                  activeTab === 'register'
+                    ? 'bg-white text-[#0066CC] shadow-xs'
+                    : 'text-stone-600 hover:text-stone-900'
+                }`}
               >
-                <LogIn className="w-4 h-4" />
-                <span>Prijavi se</span>
+                <UserCheck className="w-3.5 h-3.5" />
+                Registracija
+              </button>
+              <button
+                type="button"
+                onClick={() => { setActiveTab('login'); setError(null); }}
+                className={`py-2 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 ${
+                  activeTab === 'login'
+                    ? 'bg-white text-[#0066CC] shadow-xs'
+                    : 'text-stone-600 hover:text-stone-900'
+                }`}
+              >
+                <LogIn className="w-3.5 h-3.5" />
+                Prijava
               </button>
             </div>
-          </form>
+
+            {error && (
+              <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2 text-center">{error}</p>
+            )}
+
+            {/* TAB 1: REGISTRACIJA */}
+            {activeTab === 'register' && (
+              <form onSubmit={handleRegisterSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-stone-700 mb-1.5">
+                    Ime in priimek
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      required
+                      value={regName}
+                      onChange={(e) => setRegName(e.target.value)}
+                      placeholder="npr. Boštjan Žlogar"
+                      className="w-full pl-9 pr-3.5 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs text-stone-900 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                    />
+                    <User className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-stone-700 mb-1.5">
+                    E-mail naslov
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="email"
+                      required
+                      value={regEmail}
+                      onChange={(e) => setRegEmail(e.target.value)}
+                      placeholder="ime@podjetje.si"
+                      className="w-full pl-9 pr-3.5 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs text-stone-900 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                    />
+                    <Mail className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-stone-700 mb-1.5">
+                    Geslo
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="password"
+                      required
+                      minLength={6}
+                      value={regPassword}
+                      onChange={(e) => setRegPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="w-full pl-9 pr-3.5 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs text-stone-900 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                    />
+                    <Lock className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  </div>
+                  <p className="text-[10px] text-stone-400 mt-1">Vsaj 6 znakov.</p>
+                </div>
+
+                <div className="pt-2">
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full py-3 px-4 bg-[#0066CC] hover:bg-[#0052A3] disabled:opacity-60 disabled:cursor-not-allowed active:scale-[0.98] text-white font-bold rounded-2xl text-xs shadow-md transition-all flex items-center justify-center gap-2"
+                  >
+                    <span>{loading ? 'Ustvarjam račun...' : 'Ustvarite brezplačen račun'}</span>
+                    {!loading && <ArrowRight className="w-4 h-4" />}
+                  </button>
+                </div>
+
+                <p className="text-[11px] text-stone-500 text-center">
+                  Z registracijo se strinjate s pogoji uporabe in varstvom podatkov.
+                </p>
+              </form>
+            )}
+
+            {/* TAB 2: PRIJAVA */}
+            {activeTab === 'login' && (
+              <form onSubmit={handleLoginSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-stone-700 mb-1.5">
+                    E-mail naslov
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="email"
+                      required
+                      value={loginEmail}
+                      onChange={(e) => setLoginEmail(e.target.value)}
+                      placeholder="ime@podjetje.si"
+                      className="w-full pl-9 pr-3.5 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs text-stone-900 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                    />
+                    <Mail className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-stone-700 mb-1.5">
+                    Geslo
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="password"
+                      required
+                      value={loginPassword}
+                      onChange={(e) => setLoginPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="w-full pl-9 pr-3.5 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs text-stone-900 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                    />
+                    <Lock className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  </div>
+                </div>
+
+                <div className="pt-2">
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full py-3 px-4 bg-[#0066CC] hover:bg-[#0052A3] disabled:opacity-60 disabled:cursor-not-allowed active:scale-[0.98] text-white font-bold rounded-2xl text-xs shadow-md transition-all flex items-center justify-center gap-2"
+                  >
+                    <LogIn className="w-4 h-4" />
+                    <span>{loading ? 'Prijavljam...' : 'Prijavi se'}</span>
+                  </button>
+                </div>
+              </form>
+            )}
+          </>
         )}
       </div>
     </div>
