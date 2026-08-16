@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { X, Building2, Send, CheckCircle2 } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 interface EnterpriseModalProps {
   isOpen: boolean;
@@ -8,6 +9,8 @@ interface EnterpriseModalProps {
 
 export const EnterpriseModal: React.FC<EnterpriseModalProps> = ({ isOpen, onClose }) => {
   const [submitted, setSubmitted] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     companyName: '',
     employees: '50-250',
@@ -18,14 +21,36 @@ export const EnterpriseModal: React.FC<EnterpriseModalProps> = ({ isOpen, onClos
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
-  e.preventDefault();
-  setSubmitted(true);
-  setTimeout(() => {
-    setSubmitted(false);
-    onClose();
-  }, 3000);
-};
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSending(true);
+    setError(null);
+
+    const { error: fnError } = await supabase.functions.invoke('send-contact-email-Auronio', {
+      body: {
+        tier: 'enterprise',
+        name: formData.companyName,
+        companyName: formData.companyName,
+        employees: formData.employees,
+        email: formData.email,
+        phone: formData.phone,
+        message: formData.notes,
+      },
+    });
+
+    setSending(false);
+
+    if (fnError) {
+      setError('Pošiljanje ni uspelo. Poskusite znova ali nam pišite na info@auronio.com.');
+      return;
+    }
+
+    setSubmitted(true);
+    setTimeout(() => {
+      setSubmitted(false);
+      onClose();
+    }, 3000);
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-sm animate-fadeIn">
@@ -121,12 +146,17 @@ export const EnterpriseModal: React.FC<EnterpriseModalProps> = ({ isOpen, onClos
               />
             </div>
 
+            {error && (
+              <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2">{error}</p>
+            )}
+
             <button
               type="submit"
-              className="w-full py-3 px-4 bg-[#0066CC] hover:bg-[#0052A3] text-white font-semibold text-xs rounded-xl transition-all flex items-center justify-center gap-2 shadow-md"
+              disabled={sending}
+              className="w-full py-3 px-4 bg-[#0066CC] hover:bg-[#0052A3] disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold text-xs rounded-xl transition-all flex items-center justify-center gap-2 shadow-md"
             >
               <Send className="w-3.5 h-3.5 text-blue-100" />
-              Pošlji Enterprise povpraševanje
+              {sending ? 'Pošiljam...' : 'Pošlji Enterprise povpraševanje'}
             </button>
           </form>
         )}
