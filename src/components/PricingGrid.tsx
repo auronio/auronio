@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Check, Sparkles, ArrowRight, ShieldCheck, Mail } from 'lucide-react';
+import { Check, Sparkles, ArrowRight, ShieldCheck, Mail, UserCheck } from 'lucide-react';
 import { QuickInterestModal } from './QuickInterestModal';
 
 interface PricingGridProps {
