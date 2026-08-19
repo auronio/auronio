@@ -15,7 +15,9 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
 // takoj ko se registrirajo/prijavijo z real Supabase Auth kontom.
 // Dodaj svoj e-mail sem, da lahko testiraš portal brez omejitev.
 export const ADMIN_EMAILS: string[] = [
-  // 'tvoj.email@example.com',
+  'igorkuzelj@tech-center.com',
+  'igorkuzelj8@gmail.com',
+  'igor.kuzelj@gs-sevnica.si',
 ];
 
 export function isAdminEmail(email: string | null | undefined): boolean {
