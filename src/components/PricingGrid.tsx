@@ -12,6 +12,7 @@ export const PricingGrid: React.FC<PricingGridProps> = ({
   onOpenAuth,
 }) => {
   const [interestTier, setInterestTier] = useState<'beta' | 'partner' | 'business' | null>(null);
+  const [isPartnerSelected, setIsPartnerSelected] = useState(false);
 
   const handleScrollToGenerator = () => {
     if (onScrollToGenerator) {
@@ -98,14 +99,14 @@ export const PricingGrid: React.FC<PricingGridProps> = ({
                 <span className="text-3xl font-black text-slate-900">0 €</span>
               </div>
               <p className="text-xs text-slate-500 mt-1">
-                Preizkusite Auronio v omejenem beta programu.
+                Registrirajte se brezplačno in shranjujte svoje QR kode v osebnem arhivu.
               </p>
             </div>
 
             <ul className="space-y-2.5 text-xs text-slate-600 pt-3 border-t border-slate-100">
               <li className="flex items-center gap-2">
                 <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                Dostop na povabilo
+                Registracija v manj kot minuti
               </li>
               <li className="flex items-center gap-2">
                 <Check className="w-4 h-4 text-emerald-600 shrink-0" />
@@ -132,36 +133,54 @@ export const PricingGrid: React.FC<PricingGridProps> = ({
           </button>
         </div>
 
-        {/* Card 3: Partner pilot */}
-        <div className="bg-white border border-slate-200/90 rounded-3xl p-6 flex flex-col justify-between shadow-xs hover:border-slate-300 transition-all">
+        {/* Card 3: Partner pilot — ob kliku na gumb se obarva črno, enako kot Poslovna kartica */}
+        <div
+          className={`border rounded-3xl p-6 flex flex-col justify-between shadow-xs transition-all ${
+            isPartnerSelected
+              ? 'bg-slate-900 border-slate-900'
+              : 'bg-white border-slate-200/90 hover:border-slate-300'
+          }`}
+        >
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+              <span
+                className={`text-xs font-bold uppercase tracking-wider ${
+                  isPartnerSelected ? 'text-slate-400' : 'text-slate-500'
+                }`}
+              >
                 PARTNERSTVO
               </span>
             </div>
 
             <div>
-              <h3 className="text-xl font-bold text-slate-900">Partner</h3>
+              <h3 className={`text-xl font-bold ${isPartnerSelected ? 'text-white' : 'text-slate-900'}`}>
+                Partner
+              </h3>
               <div className="mt-2 flex items-baseline gap-1">
-                <span className="text-3xl font-black text-slate-900">Po dogovoru</span>
+                <span className={`text-3xl font-black ${isPartnerSelected ? 'text-white' : 'text-slate-900'}`}>
+                  Po dogovoru
+                </span>
               </div>
-              <p className="text-xs text-slate-500 mt-1">
+              <p className={`text-xs mt-1 ${isPartnerSelected ? 'text-slate-400' : 'text-slate-500'}`}>
                 Za agencije in ponudnike, ki želijo Auronio vgraditi v svojo ponudbo.
               </p>
             </div>
 
-            <ul className="space-y-2.5 text-xs text-slate-600 pt-3 border-t border-slate-100">
+            <ul
+              className={`space-y-2.5 text-xs pt-3 border-t ${
+                isPartnerSelected ? 'text-slate-300 border-slate-700' : 'text-slate-600 border-slate-100'
+              }`}
+            >
               <li className="flex items-center gap-2">
-                <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                <Check className={`w-4 h-4 shrink-0 ${isPartnerSelected ? 'text-emerald-400' : 'text-emerald-600'}`} />
                 Razširjeno število map in modulov
               </li>
               <li className="flex items-center gap-2">
-                <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                <Check className={`w-4 h-4 shrink-0 ${isPartnerSelected ? 'text-emerald-400' : 'text-emerald-600'}`} />
                 Prednostna podpora
               </li>
               <li className="flex items-center gap-2">
-                <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                <Check className={`w-4 h-4 shrink-0 ${isPartnerSelected ? 'text-emerald-400' : 'text-emerald-600'}`} />
                 Vpliv na razvoj novih funkcij
               </li>
             </ul>
@@ -169,8 +188,15 @@ export const PricingGrid: React.FC<PricingGridProps> = ({
 
           <button
             type="button"
-            onClick={() => setInterestTier('partner')}
-            className="w-full mt-6 py-2.5 px-4 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-900 transition-all flex items-center justify-center gap-1.5 text-center cursor-pointer"
+            onClick={() => {
+              setIsPartnerSelected(true);
+              setInterestTier('partner');
+            }}
+            className={`w-full mt-6 py-2.5 px-4 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5 text-center cursor-pointer ${
+              isPartnerSelected
+                ? 'bg-white hover:bg-slate-100 text-slate-900'
+                : 'bg-slate-100 hover:bg-slate-200 text-slate-900'
+            }`}
           >
             <ShieldCheck className="w-3.5 h-3.5" />
             Zaprosi za Partner pilot
