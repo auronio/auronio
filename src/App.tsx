@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   ModuleType, 
   UserTier, 
@@ -27,6 +27,7 @@ import { AnalyticsModal } from './components/AnalyticsModal';
 import { SavedRecordsDrawer } from './components/SavedRecordsDrawer';
 import { AuthModal } from './components/AuthModal';
 import { Footer } from './components/Footer';
+import { supabase, isAdminEmail } from './lib/supabase';
 
 import { 
   Globe, 
@@ -37,10 +38,20 @@ import {
   Video
 } from 'lucide-react';
 
+const extractInitials = (fullName: string): string => {
+  const parts = fullName.trim().split(/\s+/);
+  if (parts.length === 0 || !parts[0]) return 'U';
+  if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
+  return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+};
+
 export default function App() {
   // Navigation & Tier State
   const [activeModule, setActiveModule] = useState<ModuleType>('url');
-  const [userTier, setUserTier] = useState<UserTier>('premium'); // Full access enabled for the beta pilot preview
+  // Privzeto je vsak obiskovalec 'gost' (brez prijave). Prava prijava (Supabase Auth)
+  // spodaj samodejno nastavi pravi nivo ('uporabnik' ali 'enterprise' za admin e-maile).
+  const [userTier, setUserTier] = useState<UserTier>('gost');
+  const [authChecked, setAuthChecked] = useState<boolean>(false);
 
   // Shared Global Custom Folders State
   const [customFolders, setCustomFolders] = useState<string[]>([
@@ -238,19 +249,59 @@ END:VCARD`;
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  // Ob nalaganju preveri, ali je uporabnik že prijavljen (obstoječa Supabase seja),
+  // in poslušaj spremembe prijave (login/logout/potrditev e-maila) v realnem času.
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      const user = data.session?.user;
+      if (user) {
+        const name = (user.user_metadata?.name as string) || user.email?.split('@')[0] || 'Uporabnik';
+        setAuthUser({ id: user.id, name, email: user.email || '', initials: extractInitials(name) });
+        setUserTier(isAdminEmail(user.email) ? 'enterprise' : 'uporabnik');
+      }
+      setAuthChecked(true);
+    });
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      const user = session?.user;
+      if (user) {
+        const name = (user.user_metadata?.name as string) || user.email?.split('@')[0] || 'Uporabnik';
+        setAuthUser({ id: user.id, name, email: user.email || '', initials: extractInitials(name) });
+        setUserTier(isAdminEmail(user.email) ? 'enterprise' : 'uporabnik');
+      } else {
+        setAuthUser(null);
+        setUserTier('gost');
+      }
+    });
+
+    return () => listener.subscription.unsubscribe();
+  }, []);
+
   return (
     <div className="min-h-screen bg-[#F5F5F7] text-[#1D1D1F] font-sans antialiased selection:bg-[#1D1D1F] selection:text-white pb-12">
       {/* Header Bar */}
       <Header
         userTier={userTier}
         authUser={authUser}
-        onOpenSavedRecords={() => setIsSavedDrawerOpen(true)}
+        onOpenSavedRecords={() => {
+          // Mape & Arhiv so na voljo samo prijavljenim uporabnikom.
+          if (!authUser) {
+            setIsAuthModalOpen(true);
+          } else {
+            setIsSavedDrawerOpen(true);
+          }
+        }}
         onOpenPricing={() => {
           const pricingEl = document.getElementById('pricing-grid');
           pricingEl?.scrollIntoView({ behavior: 'smooth' });
         }}
         onOpenAuth={() => setIsAuthModalOpen(true)}
-        onLogout={() => setAuthUser(null)}
+        onLogout={() => {
+          supabase.auth.signOut();
+          setAuthUser(null);
+          setUserTier('gost');
+          setIsSavedDrawerOpen(false);
+        }}
       />
 
       {/* Hero Workspace Area */}
@@ -400,6 +451,7 @@ END:VCARD`;
                 const pricingEl = document.getElementById('pricing-grid');
                 pricingEl?.scrollIntoView({ behavior: 'smooth' });
               }}
+              onRequireAuth={() => setIsAuthModalOpen(true)}
             />
           </div>
         </div>
@@ -419,6 +471,8 @@ END:VCARD`;
         onClose={() => setIsAuthModalOpen(false)}
         onAuthSuccess={(user) => {
           setAuthUser(user);
+          setUserTier(isAdminEmail(user.email) ? 'enterprise' : 'uporabnik');
+          setIsSavedDrawerOpen(true);
         }}
       />
 
@@ -450,6 +504,10 @@ END:VCARD`;
         userTier={userTier}
         onSelectTier={setUserTier}
         onOpenEnterpriseModal={() => setIsEnterpriseModalOpen(true)}
+        onRequireAuth={() => {
+          setIsSavedDrawerOpen(false);
+          setIsAuthModalOpen(true);
+        }}
         customFolders={customFolders}
         setCustomFolders={setCustomFolders}
       />
