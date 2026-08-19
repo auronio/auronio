@@ -11,6 +11,18 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   },
 });
 
+// Admin allowlist — ti e-mail naslovi dobijo poln (enterprise) dostop brez omejitev,
+// takoj ko se registrirajo/prijavijo z real Supabase Auth kontom.
+// Dodaj svoj e-mail sem, da lahko testiraš portal brez omejitev.
+export const ADMIN_EMAILS: string[] = [
+  // 'tvoj.email@example.com',
+];
+
+export function isAdminEmail(email: string | null | undefined): boolean {
+  if (!email) return false;
+  return ADMIN_EMAILS.map((e) => e.toLowerCase()).includes(email.toLowerCase());
+}
+
 const LOCAL_STORAGE_KEY = 'auronio_qr_records_v1';
 
 const DEFAULT_SAMPLE_RECORDS: QrRecord[] = [
@@ -127,7 +139,13 @@ export function saveLocalRecords(records: QrRecord[]): void {
   }
 }
 
-// Sync record to Supabase with local fallback
+// Vrne ID trenutno prijavljenega uporabnika (ali null, če ni prijavljen)
+export async function getCurrentUserId(): Promise<string | null> {
+  const { data } = await supabase.auth.getSession();
+  return data.session?.user?.id ?? null;
+}
+
+// Sync record to Supabase with local fallback (zapisano samo za prijavljenega uporabnika)
 export async function syncRecordToSupabase(record: QrRecord): Promise<{ success: boolean; isOnline: boolean; message: string }> {
   // Update local storage first for immediate availability
   const current = getLocalRecords();
@@ -139,9 +157,20 @@ export async function syncRecordToSupabase(record: QrRecord): Promise<{ success:
   }
   saveLocalRecords(current);
 
+  const userId = await getCurrentUserId();
+  if (!userId) {
+    // Ni prijave -> ni pravega lastnika, shranimo samo lokalno (npr. gost preview)
+    return {
+      success: true,
+      isOnline: false,
+      message: 'Podatki shranjeni lokalno. Za trajno shranjevanje se prijavite.',
+    };
+  }
+
   try {
     const { error } = await supabase.from('qr_codes').upsert({
       id: record.id,
+      user_id: userId,
       title: record.title,
       folder: record.folder,
       module_type: record.moduleType,
@@ -177,12 +206,20 @@ export async function syncRecordToSupabase(record: QrRecord): Promise<{ success:
   }
 }
 
-// Fetch records from Supabase with fallback to local storage
+// Fetch records belonging to the current logged-in user only (RLS + explicit filter)
 export async function fetchAllRecords(): Promise<QrRecord[]> {
   const local = getLocalRecords();
+  const userId = await getCurrentUserId();
+  if (!userId) return [];
+
   try {
-    const { data, error } = await supabase.from('qr_codes').select('*').order('created_at', { ascending: false });
-    if (!error && data && data.length > 0) {
+    const { data, error } = await supabase
+      .from('qr_codes')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (!error && data) {
       const mapped: QrRecord[] = data.map((row: any) => ({
         id: row.id,
         title: row.title || 'Neimenovana koda',
@@ -195,23 +232,28 @@ export async function fetchAllRecords(): Promise<QrRecord[]> {
         createdAt: row.created_at || new Date().toISOString(),
         scanCount: row.scan_count || 0,
       }));
-      // Merge with local if needed
       saveLocalRecords(mapped);
       return mapped;
     }
   } catch (err) {
     console.warn('Using local records fallback:', err);
   }
-  return local;
+  return local.length > 0 ? local : [];
 }
 
-// Delete record
+// Delete record (samo če pripada trenutnemu uporabniku — dodatno ga varuje tudi RLS na strežniku)
 export async function deleteRecord(id: string): Promise<boolean> {
   const current = getLocalRecords().filter((r) => r.id !== id);
   saveLocalRecords(current);
 
+  const userId = await getCurrentUserId();
   try {
-    await supabase.from('qr_codes').delete().eq('id', id);
+    const query = supabase.from('qr_codes').delete().eq('id', id);
+    if (userId) {
+      await query.eq('user_id', userId);
+    } else {
+      await query;
+    }
   } catch (err) {
     console.warn('Error deleting from Supabase:', err);
   }
