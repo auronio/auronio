@@ -10,7 +10,8 @@ import {
   QrRecord,
   VideoData 
 } from '../types';
-import { syncRecordToSupabase } from '../lib/supabase';
+import { syncRecordToSupabase, fetchAllRecords } from '../lib/supabase';
+import { getTierLimits } from '../lib/limits';
 import { 
   Save, 
   Download, 
@@ -104,6 +105,7 @@ interface PreviewTerminalProps {
   customFolders?: string[];
   qrStyle?: QrStyleConfig;
   onStyleChange?: (style: QrStyleConfig) => void;
+  onRequireAuth?: () => void;
 }
 
 export const PreviewTerminal: React.FC<PreviewTerminalProps> = ({
@@ -117,6 +119,7 @@ export const PreviewTerminal: React.FC<PreviewTerminalProps> = ({
   customFolders,
   qrStyle: externalQrStyle,
   onStyleChange,
+  onRequireAuth,
 }) => {
   // Folder Command Center state
   const [selectedFolder, setSelectedFolder] = useState<FolderCategory>('Glavna mapa');
@@ -230,8 +233,30 @@ export const PreviewTerminal: React.FC<PreviewTerminalProps> = ({
       return;
     }
 
+    // Shranjevanje v mapo/arhiv zahteva prijavo (gost lahko kodo samo prenese).
+    if (userTier === 'gost') {
+      onRequireAuth?.();
+      return;
+    }
+
     setIsSyncing(true);
     setSyncFeedback(null);
+
+    // Dejansko preveri trenutno število shranjenih kod tega uporabnika proti limitu paketa
+    // (ne samo prikaz — resnično blokira shranjevanje, ko je limit dosežen).
+    const limits = getTierLimits(userTier);
+    if (Number.isFinite(limits.maxActiveCodes)) {
+      const existingRecords = await fetchAllRecords();
+      if (existingRecords.length >= limits.maxActiveCodes) {
+        setIsSyncing(false);
+        setSyncFeedback({
+          type: 'error',
+          message: `Dosegli ste mejo ${limits.codesDisplayCap} za paket "${limits.tierName}". Nadgradite paket za več prostora.`,
+        });
+        setTimeout(() => setSyncFeedback(null), 5000);
+        return;
+      }
+    }
 
     const record: QrRecord = {
       id: 'qr_' + Date.now(),
