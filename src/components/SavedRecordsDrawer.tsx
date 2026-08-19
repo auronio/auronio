@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { QrRecord, FolderCategory, UserTier } from '../types';
 import { fetchAllRecords, deleteRecord, syncRecordToSupabase } from '../lib/supabase';
+import { getTierLimits } from '../lib/limits';
 import { 
   X, 
   ArrowLeft, 
@@ -35,6 +36,7 @@ interface SavedRecordsDrawerProps {
   userTier?: UserTier;
   onSelectTier?: (tier: UserTier) => void;
   onOpenEnterpriseModal?: () => void;
+  onRequireAuth?: () => void;
   customFolders?: string[];
   setCustomFolders?: React.Dispatch<React.SetStateAction<string[]>>;
 }
@@ -65,6 +67,7 @@ export const SavedRecordsDrawer: React.FC<SavedRecordsDrawerProps> = ({
   userTier = 'gost',
   onSelectTier,
   onOpenEnterpriseModal,
+  onRequireAuth,
   customFolders: externalCustomFolders,
   setCustomFolders: externalSetCustomFolders,
 }) => {
@@ -190,63 +193,20 @@ export const SavedRecordsDrawer: React.FC<SavedRecordsDrawerProps> = ({
     return `https://auronio.com/${slug}`;
   };
 
-  // Tier Limits Config
-  const limits = React.useMemo(() => {
-    switch (userTier) {
-      case 'gost':
-        return {
-          maxCustomFolders: 0,
-          maxActiveCodes: 1,
-          maxMonthlyScans: 100,
-          scanDisplayCap: '100',
-          codesDisplayCap: '1 koda',
-          folderDisplayCap: '0 map (Zaklenjeno)',
-          tierName: 'Gost',
-        };
-      case 'uporabnik':
-        return {
-          maxCustomFolders: 3,
-          maxActiveCodes: 5,
-          maxMonthlyScans: 800,
-          scanDisplayCap: '800',
-          codesDisplayCap: '5 kod',
-          folderDisplayCap: '3 mape po meri',
-          tierName: 'Uporabnik',
-        };
-      case 'premium':
-        return {
-          maxCustomFolders: 20,
-          maxActiveCodes: 100,
-          maxMonthlyScans: 50000,
-          scanDisplayCap: '50.000',
-          codesDisplayCap: '100 kod',
-          folderDisplayCap: '20 map po meri',
-          tierName: 'Premium',
-        };
-      case 'enterprise':
-        return {
-          maxCustomFolders: Infinity,
-          maxActiveCodes: Infinity,
-          maxMonthlyScans: Infinity,
-          scanDisplayCap: 'Neomejeno',
-          codesDisplayCap: 'Neomejeno',
-          folderDisplayCap: 'Neomejeno',
-          tierName: 'Enterprise',
-        };
-    }
-  }, [userTier]);
+  // Tier Limits Config (skupna definicija v src/lib/limits.ts, da je usklajena povsod)
+  const limits = React.useMemo(() => getTierLimits(userTier), [userTier]);
 
   // Actions for folders
   const handleAddFolderClick = () => {
     if (userTier === 'gost') {
-      setInterceptModal({ type: 'gost_registration' });
+      onRequireAuth?.();
       return;
     }
-    if (userTier === 'uporabnik' && customFolders.length >= 3) {
+    if (userTier === 'uporabnik' && customFolders.length >= limits.maxCustomFolders) {
       setInterceptModal({ type: 'limit_uporabnik' });
       return;
     }
-    if (userTier === 'premium' && customFolders.length >= 20) {
+    if (userTier === 'premium' && customFolders.length >= limits.maxCustomFolders) {
       setInterceptModal({ type: 'limit_premium' });
       return;
     }
@@ -257,7 +217,7 @@ export const SavedRecordsDrawer: React.FC<SavedRecordsDrawerProps> = ({
   const handleEditFolderClick = (folderName: string, index: number, e: React.MouseEvent) => {
     e.stopPropagation();
     if (userTier === 'gost') {
-      setInterceptModal({ type: 'gost_registration' });
+      onRequireAuth?.();
       return;
     }
     setFolderInputName(folderName);
@@ -267,7 +227,7 @@ export const SavedRecordsDrawer: React.FC<SavedRecordsDrawerProps> = ({
   const handleDeleteFolderClick = (folderName: string, index: number, e: React.MouseEvent) => {
     e.stopPropagation();
     if (userTier === 'gost') {
-      setInterceptModal({ type: 'gost_registration' });
+      onRequireAuth?.();
       return;
     }
     if (confirm(`Ali ste prepričani, da želite izbrisati mapo "${folderName}"?`)) {
