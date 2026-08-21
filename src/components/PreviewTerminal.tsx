@@ -12,6 +12,29 @@ import {
 } from '../types';
 import { syncRecordToSupabase, fetchAllRecords } from '../lib/supabase';
 import { getTierLimits } from '../lib/limits';
+
+// Izlušči slug (rep povezave auronio.com/r/slug) in dejanski ciljni URL iz podatkov modula,
+// samo za tipe, ki dejansko potrebujejo pravo preusmeritev preko strežnika (url-dinamični, menu).
+function extractSlugAndTarget(
+  moduleType: ModuleType,
+  moduleData: any
+): { slug: string | null; targetUrl: string | null } {
+  if (moduleType === 'url' && moduleData?.pathType === 'dynamic') {
+    const rawSlug = (moduleData.customSlug || moduleData.slug || '').trim();
+    return {
+      slug: rawSlug || null,
+      targetUrl: moduleData.url || null,
+    };
+  }
+  if (moduleType === 'menu') {
+    const rawSlug = (moduleData?.slug || '').trim();
+    return {
+      slug: rawSlug || null,
+      targetUrl: null,
+    };
+  }
+  return { slug: null, targetUrl: null };
+}
 import { 
   Save, 
   Download, 
@@ -268,7 +291,8 @@ export const PreviewTerminal: React.FC<PreviewTerminalProps> = ({
       style: qrStyle,
       userTier: userTier,
       createdAt: new Date().toISOString(),
-      scanCount: Math.floor(Math.random() * 25) + 1,
+      scanCount: 0, // Pravo štetje se zdaj izvaja v Edge Function "redirect-qr" ob dejanskem skeniranju
+      ...extractSlugAndTarget(activeModule, moduleData),
     };
 
     const result = await syncRecordToSupabase(record);
