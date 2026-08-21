@@ -147,6 +147,22 @@ export async function getCurrentUserId(): Promise<string | null> {
   return data.session?.user?.id ?? null;
 }
 
+// Vrne pravo (ne izmišljeno) skupno število skenov ta mesec za trenutnega uporabnika,
+// izračunano iz qr_scan_events preko Postgres funkcije get_monthly_scan_count.
+export async function fetchMonthlyScanCount(): Promise<number> {
+  const userId = await getCurrentUserId();
+  if (!userId) return 0;
+
+  try {
+    const { data, error } = await supabase.rpc('get_monthly_scan_count', { p_user_id: userId });
+    if (error || data === null || data === undefined) return 0;
+    return Number(data) || 0;
+  } catch (err) {
+    console.warn('Napaka pri branju mesečnih skenov:', err);
+    return 0;
+  }
+}
+
 // Sync record to Supabase with local fallback (zapisano samo za prijavljenega uporabnika)
 export async function syncRecordToSupabase(record: QrRecord): Promise<{ success: boolean; isOnline: boolean; message: string }> {
   // Update local storage first for immediate availability
@@ -182,6 +198,8 @@ export async function syncRecordToSupabase(record: QrRecord): Promise<{ success:
       user_tier: record.userTier,
       created_at: record.createdAt,
       scan_count: record.scanCount,
+      slug: record.slug ?? null,
+      target_url: record.targetUrl ?? null,
     });
 
     if (error) {
@@ -233,6 +251,8 @@ export async function fetchAllRecords(): Promise<QrRecord[]> {
         userTier: row.user_tier || 'gost',
         createdAt: row.created_at || new Date().toISOString(),
         scanCount: row.scan_count || 0,
+        slug: row.slug ?? null,
+        targetUrl: row.target_url ?? null,
       }));
       saveLocalRecords(mapped);
       return mapped;
