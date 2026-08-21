@@ -282,7 +282,7 @@ export const PreviewTerminal: React.FC<PreviewTerminalProps> = ({
     }
 
     const record: QrRecord = {
-      id: 'qr_' + Date.now(),
+      id: crypto.randomUUID(), // Mora biti veljaven UUID — Supabase qr_codes.id je tipa uuid
       title: customTitle.trim(),
       folder: selectedFolder,
       moduleType: activeModule,
