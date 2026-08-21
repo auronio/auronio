@@ -190,9 +190,9 @@ export async function syncRecordToSupabase(record: QrRecord): Promise<{ success:
       id: record.id,
       user_id: userId,
       title: record.title,
-      folder: record.folder,
-      module_type: record.moduleType,
-      payload: record.payload,
+      folder_name: record.folder,
+      type: record.moduleType,
+      content: record.payload,
       data: record.data,
       style: record.style,
       user_tier: record.userTier,
@@ -203,11 +203,13 @@ export async function syncRecordToSupabase(record: QrRecord): Promise<{ success:
     });
 
     if (error) {
-      console.warn('Supabase sync notice:', error.message);
+      // Prej se je napaka tiho pogoltnila in uporabniku vseeno prikazalo "uspešno" —
+      // zdaj resnično sporočimo, da shranjevanje v Supabase ni uspelo, da se to ne ponovi neopaženo.
+      console.error('Supabase sync error:', error.message);
       return {
-        success: true,
+        success: false,
         isOnline: false,
-        message: 'Podatki uspešno shranjeni.',
+        message: `Shranjevanje v Supabase ni uspelo (${error.message}). Podatki so ostali samo lokalno.`,
       };
     }
 
@@ -217,11 +219,11 @@ export async function syncRecordToSupabase(record: QrRecord): Promise<{ success:
       message: 'Podatki uspešno shranjeni.',
     };
   } catch (err: any) {
-    console.warn('Supabase connection attempt handled:', err);
+    console.error('Supabase connection error:', err);
     return {
-      success: true,
+      success: false,
       isOnline: false,
-      message: 'Podatki uspešno shranjeni.',
+      message: 'Napaka pri povezavi s Supabase. Podatki so ostali samo lokalno.',
     };
   }
 }
@@ -243,9 +245,9 @@ export async function fetchAllRecords(): Promise<QrRecord[]> {
       const mapped: QrRecord[] = data.map((row: any) => ({
         id: row.id,
         title: row.title || 'Neimenovana koda',
-        folder: row.folder || 'Glavna mapa',
-        moduleType: row.module_type || 'url',
-        payload: row.payload || '',
+        folder: row.folder_name || 'Glavna mapa',
+        moduleType: row.type || 'url',
+        payload: row.content || '',
         data: row.data || {},
         style: row.style || { fgColor: '#1D1D1F', bgColor: '#FFFFFF', dotsStyle: 'Zaobljene', logoUrl: null, size: 220 },
         userTier: row.user_tier || 'gost',
