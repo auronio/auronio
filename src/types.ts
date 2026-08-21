@@ -110,4 +110,10 @@ export interface QrRecord {
   userTier: UserTier;
   createdAt: string;
   scanCount: number;
+  // Rep povezave (auronio.com/r/slug) — nastavljen samo za dinamične 'url' in 'menu' module,
+  // ki jih obiskovalci dejansko skenirajo in preusmerijo preko Edge Function "redirect-qr".
+  slug?: string | null;
+  // Trenutni ciljni URL za dinamične 'url' kode (uporabnik ga lahko kadarkoli spremeni,
+  // ne da bi bilo treba ponovno natisniti QR kodo).
+  targetUrl?: string | null;
 }
