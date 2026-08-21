@@ -311,6 +311,13 @@ export const PreviewTerminal: React.FC<PreviewTerminalProps> = ({
       });
 
       setTimeout(() => setSyncFeedback(null), 4500);
+    } else {
+      // Prej se je napaka pri shranjevanju tiho izgubila — zdaj jo uporabnik dejansko vidi.
+      setSyncFeedback({
+        type: 'error',
+        message: result.message,
+      });
+      setTimeout(() => setSyncFeedback(null), 6000);
     }
   };
 
