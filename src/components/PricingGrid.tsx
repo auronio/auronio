@@ -11,7 +11,7 @@ export const PricingGrid: React.FC<PricingGridProps> = ({
   onScrollToGenerator,
   onOpenAuth,
 }) => {
-  const [interestTier, setInterestTier] = useState<'beta' | 'partner' | 'business' | null>(null);
+  const [interestTier, setInterestTier] = useState<'beta' | 'partner' | 'pro' | 'business' | null>(null);
   const [isPartnerSelected, setIsPartnerSelected] = useState(false);
 
   const handleScrollToGenerator = () => {
@@ -38,8 +38,8 @@ export const PricingGrid: React.FC<PricingGridProps> = ({
         </p>
       </div>
 
-      {/* 4-Column Beta Matrix */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      {/* 5-Column Beta Matrix: Gost / Auronio Beta / Partner / Pro / Poslovno */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
         {/* Card 1: Gost */}
         <div className="bg-white border border-slate-200/90 rounded-3xl p-6 flex flex-col justify-between shadow-xs hover:border-slate-300 transition-all">
           <div className="space-y-4">
@@ -203,7 +203,60 @@ export const PricingGrid: React.FC<PricingGridProps> = ({
           </button>
         </div>
 
-        {/* Card 4: Poslovno */}
+        {/* Card 4: Pro (mesečna naročnina — Digistore24 checkout, ko bo odobren) */}
+        <div className="bg-white border border-blue-200 rounded-3xl p-6 flex flex-col justify-between shadow-xs hover:border-blue-300 transition-all relative overflow-hidden">
+          <div className="absolute top-0 right-0 bg-blue-600 text-white text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-bl-xl">
+            Kmalu
+          </div>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wider text-blue-600">
+                NAROČNINA
+              </span>
+            </div>
+
+            <div>
+              <h3 className="text-xl font-bold text-slate-900">Pro</h3>
+              <div className="mt-2 flex items-baseline gap-1">
+                <span className="text-3xl font-black text-slate-900">9,99 €</span>
+                <span className="text-xs text-slate-500">/mesec</span>
+              </div>
+              <p className="text-xs text-slate-500 mt-1">
+                Za posameznike in manjša podjetja, ki redno uporabljajo pametne QR kode.
+              </p>
+            </div>
+
+            <ul className="space-y-2.5 text-xs text-slate-600 pt-3 border-t border-slate-100">
+              <li className="flex items-center gap-2">
+                <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                Do 20 map po meri
+              </li>
+              <li className="flex items-center gap-2">
+                <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                Do 100 aktivnih QR kod
+              </li>
+              <li className="flex items-center gap-2">
+                <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                Do 50.000 skenov/mesec
+              </li>
+              <li className="flex items-center gap-2">
+                <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                Brez vodnega žiga Auronio
+              </li>
+            </ul>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setInterestTier('pro')}
+            className="w-full mt-6 py-2.5 px-4 rounded-xl text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white transition-all flex items-center justify-center gap-1.5 text-center cursor-pointer"
+          >
+            <Mail className="w-3.5 h-3.5" />
+            Obvesti me ob zagonu
+          </button>
+        </div>
+
+        {/* Card 5: Poslovno */}
         <div className="bg-slate-900 border border-slate-900 rounded-3xl p-6 flex flex-col justify-between shadow-xs">
           <div className="space-y-4">
             <div className="flex items-center justify-between">
