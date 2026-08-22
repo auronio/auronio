@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabase';
 interface QuickInterestModalProps {
   isOpen: boolean;
   onClose: () => void;
-  tier: 'beta' | 'partner' | 'business';
+  tier: 'beta' | 'partner' | 'pro' | 'business';
 }
 
 const TIER_CONTENT: Record<string, { title: string; subtitle: string; button: string }> = {
@@ -18,6 +18,11 @@ const TIER_CONTENT: Record<string, { title: string; subtitle: string; button: st
     title: 'Postani Partner pilot',
     subtitle: 'Pošlji nam svoj email in se pogovorimo o pilotnem sodelovanju.',
     button: 'Pošlji interes',
+  },
+  pro: {
+    title: 'Auronio Pro — obvestite me ob zagonu',
+    subtitle: 'Naročnina Pro je trenutno v pripravi. Pusti svoj email in te obvestimo takoj, ko bo na voljo.',
+    button: 'Obvesti me',
   },
   business: {
     title: 'Poslovne potrebe',
