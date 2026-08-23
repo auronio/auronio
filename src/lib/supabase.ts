@@ -1,285 +1,104 @@
-import { createClient } from '@supabase/supabase-js';
-import { QrRecord } from '../types';
+// Auronio — Edge Function "redirect-qr"
+//
+// Namen: to je pravi strežniški "možgan" za auronio.com/r/{slug}.
+// Ko nekdo skenira dinamično QR kodo:
+//   1. poišče zapis po slug-u
+//   2. DEJANSKO zabeleži sken (vrstica v qr_scan_events + +1 na qr_codes.scan_count)
+//   3. preusmeri obiskovalca na pravi cilj (zunanji URL ali stran menija)
+//
+// Uporablja service_role ključ (nastavljen samodejno s strani Supabase kot
+// SUPABASE_SERVICE_ROLE_KEY spremenljivka okolja), zato obide RLS pravila —
+// to je edino mesto v celotnem sistemu, ki sme pisati sken dogodke.
 
-const SUPABASE_URL = 'https://qfqekeeoppgsvyixqhkt.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_SbwA2eaodd_xfYkzPZgTVw_DpWJMKoh';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-  },
-});
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
+const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-// Admin allowlist — ti e-mail naslovi dobijo poln (enterprise) dostop brez omejitev,
-// takoj ko se registrirajo/prijavijo z real Supabase Auth kontom.
-// Dodaj svoj e-mail sem, da lahko testiraš portal brez omejitev.
-export const ADMIN_EMAILS: string[] = [
-  'igorkuzelj@tech-center.com',
-  'igorkuzelj8@gmail.com',
-  'igor.kuzelj@gs-sevnica.si',
-];
+const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
-export function isAdminEmail(email: string | null | undefined): boolean {
-  if (!email) return false;
-  return ADMIN_EMAILS.map((e) => e.toLowerCase()).includes(email.toLowerCase());
+const FALLBACK_URL = 'https://auronio.com';
+
+function extractSlug(req: Request): string | null {
+  const url = new URL(req.url);
+  // Podpira oboje: /functions/v1/redirect-qr/moj-slug  IN  ?slug=moj-slug
+  const pathParts = url.pathname.split('/').filter(Boolean);
+  const fromPath = pathParts[pathParts.length - 1];
+  const fromQuery = url.searchParams.get('slug');
+  const candidate = fromQuery || (fromPath && fromPath !== 'redirect-qr' ? fromPath : null);
+  return candidate ? decodeURIComponent(candidate) : null;
 }
 
-const LOCAL_STORAGE_KEY = 'auronio_qr_records_v1';
-
-const DEFAULT_SAMPLE_RECORDS: QrRecord[] = [
-  {
-    id: 'demo-1',
-    title: 'Poletna promocijska koda',
-    folder: 'Trženjske kampanje 📈',
-    moduleType: 'url',
-    payload: 'https://auronio.com/r/poletna-ponudba',
-    data: { url: 'https://auronio.com/poletje', pathType: 'dynamic', customSlug: 'poletna-ponudba' },
-    style: { fgColor: '#0066CC', bgColor: '#FFFFFF', dotsStyle: 'Prestižne', logoUrl: null, size: 220 },
-    userTier: 'premium',
-    createdAt: new Date(Date.now() - 2 * 24 * 3600 * 1000).toISOString(),
-    scanCount: 412,
-  },
-  {
-    id: 'demo-2',
-    title: 'Ekskluzivna predstavitvena video vsebina',
-    folder: 'Trženjske kampanje 📈',
-    moduleType: 'video',
-    payload: 'https://auronio.com',
-    data: {
-      videoUrl: 'https://youtu.be/P59wQ4SXtsg',
-      title: 'Ekskluzivna predstavitev Auronio',
-      description: 'Napredne pametne QR kode',
-      ctaText: 'Obišči trgovino',
-      ctaUrl: 'https://auronio.com',
-    },
-    style: { fgColor: '#0066CC', bgColor: '#FFFFFF', dotsStyle: 'Zaobljene', logoUrl: null, size: 220 },
-    userTier: 'premium',
-    createdAt: new Date(Date.now() - 4 * 24 * 3600 * 1000).toISOString(),
-    scanCount: 389,
-  },
-  {
-    id: 'demo-3',
-    title: 'Bistro Auronio Meni & Vinska karta',
-    folder: 'Restavracije & Meniji 🍽️',
-    moduleType: 'menu',
-    payload: 'https://auronio.com/menu/bistro-auronio',
-    data: {
-      restaurantName: 'Gostilna & BISTRO Auronio',
-      subtitle: 'Vrhunska mediteranska kuhinja & slovenska vina',
-      pdfUrl: 'https://auronio.com/katalog.pdf',
-      categories: ['Glavne jedi', 'Sladice'],
-      items: [],
-    },
-    style: { fgColor: '#1D1D1F', bgColor: '#FFFFFF', dotsStyle: 'Pikčaste', logoUrl: null, size: 220 },
-    userTier: 'uporabnik',
-    createdAt: new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString(),
-    scanCount: 520,
-  },
-  {
-    id: 'demo-4',
-    title: 'Marko Novak - Direktorska vCard+',
-    folder: 'Glavna mapa',
-    moduleType: 'vcard',
-    payload: 'BEGIN:VCARD\nVERSION:3.0\nFN:Marko Novak\nORG:Auronio d.o.o.\nEND:VCARD',
-    data: {
-      firstName: 'Marko',
-      lastName: 'Novak',
-      company: 'Auronio d.o.o.',
-      position: 'Direktor razvoja',
-      phone: '+386 41 123 456',
-      email: 'marko.novak@auronio.com',
-      website: 'https://auronio.com',
-      location: 'Ljubljana',
-      enableCalendar: true,
-      calendarNote: '',
-      avatarUrl: '',
-    },
-    style: { fgColor: '#0066CC', bgColor: '#FFFFFF', dotsStyle: 'Prestižne', logoUrl: null, size: 220 },
-    userTier: 'enterprise',
-    createdAt: new Date(Date.now() - 10 * 24 * 3600 * 1000).toISOString(),
-    scanCount: 145,
-  },
-  {
-    id: 'demo-5',
-    title: 'Gostinsko Wi-Fi Omrežje (VIP Konferenca)',
-    folder: 'Dogodki 🎟️',
-    moduleType: 'wifi',
-    payload: 'WIFI:S:Auronio_Gosti_WiFi;T:WPA;P:GostVarnost!;;',
-    data: { ssid: 'Auronio_Gosti_WiFi', password: 'GostVarnost!', encryption: 'WPA', hidden: false },
-    style: { fgColor: '#1D1D1F', bgColor: '#FFFFFF', dotsStyle: 'Zaobljene', logoUrl: null, size: 220 },
-    userTier: 'gost',
-    createdAt: new Date(Date.now() - 14 * 24 * 3600 * 1000).toISOString(),
-    scanCount: 230,
-  },
-];
-
-// Get initial local storage records
-export function getLocalRecords(): QrRecord[] {
+Deno.serve(async (req: Request) => {
   try {
-    const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed;
-      }
+    const slug = extractSlug(req);
+
+    if (!slug) {
+      return Response.redirect(FALLBACK_URL, 302);
     }
-  } catch (err) {
-    console.error('Error reading local records:', err);
-  }
-  // Initialize with sample records if empty
-  saveLocalRecords(DEFAULT_SAMPLE_RECORDS);
-  return DEFAULT_SAMPLE_RECORDS;
-}
 
-// Save local storage records
-export function saveLocalRecords(records: QrRecord[]): void {
-  try {
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(records));
-  } catch (err) {
-    console.error('Error saving local records:', err);
-  }
-}
+    // 1. Poišči QR zapis po slug-u
+    const { data: record, error: findError } = await supabaseAdmin
+      .from('qr_codes')
+      .select('id, user_id, module_type, target_url, data, slug')
+      .eq('slug', slug)
+      .maybeSingle();
 
-// Vrne ID trenutno prijavljenega uporabnika (ali null, če ni prijavljen)
-export async function getCurrentUserId(): Promise<string | null> {
-  const { data } = await supabase.auth.getSession();
-  return data.session?.user?.id ?? null;
-}
+    if (findError || !record) {
+      // Neveljaven/pobrisan slug — preusmeri na domačo stran namesto napake,
+      // da obiskovalec ne vidi tehnične napake.
+      return Response.redirect(FALLBACK_URL, 302);
+    }
 
-// Vrne pravo (ne izmišljeno) skupno število skenov ta mesec za trenutnega uporabnika,
-// izračunano iz qr_scan_events preko Postgres funkcije get_monthly_scan_count.
-export async function fetchMonthlyScanCount(): Promise<number> {
-  const userId = await getCurrentUserId();
-  if (!userId) return 0;
+    // 2. Zabeleži pravi sken (asinhrono, ne blokira preusmeritve)
+    const userAgent = req.headers.get('user-agent') || null;
+    const referer = req.headers.get('referer') || null;
 
-  try {
-    const { data, error } = await supabase.rpc('get_monthly_scan_count', { p_user_id: userId });
-    if (error || data === null || data === undefined) return 0;
-    return Number(data) || 0;
-  } catch (err) {
-    console.warn('Napaka pri branju mesečnih skenov:', err);
-    return 0;
-  }
-}
-
-// Sync record to Supabase with local fallback (zapisano samo za prijavljenega uporabnika)
-export async function syncRecordToSupabase(record: QrRecord): Promise<{ success: boolean; isOnline: boolean; message: string }> {
-  // Update local storage first for immediate availability
-  const current = getLocalRecords();
-  const existingIdx = current.findIndex((r) => r.id === record.id);
-  if (existingIdx >= 0) {
-    current[existingIdx] = record;
-  } else {
-    current.unshift(record);
-  }
-  saveLocalRecords(current);
-
-  const userId = await getCurrentUserId();
-  if (!userId) {
-    // Ni prijave -> ni pravega lastnika, shranimo samo lokalno (npr. gost preview)
-    return {
-      success: true,
-      isOnline: false,
-      message: 'Podatki shranjeni lokalno. Za trajno shranjevanje se prijavite.',
-    };
-  }
-
-  try {
-    const { error } = await supabase.from('qr_codes').upsert({
-      id: record.id,
-      user_id: userId,
-      title: record.title,
-      folder_name: record.folder,
-      type: record.moduleType,
-      content: record.payload,
-      data: record.data,
-      style: record.style,
-      user_tier: record.userTier,
-      created_at: record.createdAt,
-      scan_count: record.scanCount,
-      slug: record.slug ?? null,
-      target_url: record.targetUrl ?? null,
+    // Vrstica v dnevnik dogodkov (za mesečno štetje in bodočo analitiko po lokaciji/napravi)
+    void supabaseAdmin.from('qr_scan_events').insert({
+      qr_code_id: record.id,
+      user_id: record.user_id,
+      user_agent: userAgent,
+      referer: referer,
     });
 
-    if (error) {
-      // Prej se je napaka tiho pogoltnila in uporabniku vseeno prikazalo "uspešno" —
-      // zdaj resnično sporočimo, da shranjevanje v Supabase ni uspelo, da se to ne ponovi neopaženo.
-      console.error('Supabase sync error:', error.message);
-      return {
-        success: false,
-        isOnline: false,
-        message: `Shranjevanje v Supabase ni uspelo (${error.message}). Podatki so ostali samo lokalno.`,
-      };
-    }
+    // Atomarno +1 na skupno število skenov (prikaz na kartici v Arhivu)
+    void supabaseAdmin.rpc('increment_scan_count', { p_qr_code_id: record.id }).then(
+      () => {},
+      () => {
+        // Če RPC funkcija še ni nameščena, poskusi enostaven fallback (manj varen pri sočasnosti, a deluje)
+        supabaseAdmin
+          .from('qr_codes')
+          .select('scan_count')
+          .eq('id', record.id)
+          .maybeSingle()
+          .then(({ data }) => {
+            const next = (data?.scan_count || 0) + 1;
+            void supabaseAdmin.from('qr_codes').update({ scan_count: next }).eq('id', record.id);
+          });
+      }
+    );
 
-    return {
-      success: true,
-      isOnline: true,
-      message: 'Podatki uspešno shranjeni.',
-    };
-  } catch (err: any) {
-    console.error('Supabase connection error:', err);
-    return {
-      success: false,
-      isOnline: false,
-      message: 'Napaka pri povezavi s Supabase. Podatki so ostali samo lokalno.',
-    };
-  }
-}
+    // 3. Ugotovi ciljni URL glede na tip modula
+    let destination = FALLBACK_URL;
 
-// Fetch records belonging to the current logged-in user only (RLS + explicit filter)
-export async function fetchAllRecords(): Promise<QrRecord[]> {
-  const local = getLocalRecords();
-  const userId = await getCurrentUserId();
-  if (!userId) return [];
-
-  try {
-    const { data, error } = await supabase
-      .from('qr_codes')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false });
-
-    if (!error && data) {
-      const mapped: QrRecord[] = data.map((row: any) => ({
-        id: row.id,
-        title: row.title || 'Neimenovana koda',
-        folder: row.folder_name || 'Glavna mapa',
-        moduleType: row.type || 'url',
-        payload: row.content || '',
-        data: row.data || {},
-        style: row.style || { fgColor: '#1D1D1F', bgColor: '#FFFFFF', dotsStyle: 'Zaobljene', logoUrl: null, size: 220 },
-        userTier: row.user_tier || 'gost',
-        createdAt: row.created_at || new Date().toISOString(),
-        scanCount: row.scan_count || 0,
-        slug: row.slug ?? null,
-        targetUrl: row.target_url ?? null,
-      }));
-      saveLocalRecords(mapped);
-      return mapped;
-    }
-  } catch (err) {
-    console.warn('Using local records fallback:', err);
-  }
-  return local.length > 0 ? local : [];
-}
-
-// Delete record (samo če pripada trenutnemu uporabniku — dodatno ga varuje tudi RLS na strežniku)
-export async function deleteRecord(id: string): Promise<boolean> {
-  const current = getLocalRecords().filter((r) => r.id !== id);
-  saveLocalRecords(current);
-
-  const userId = await getCurrentUserId();
-  try {
-    const query = supabase.from('qr_codes').delete().eq('id', id);
-    if (userId) {
-      await query.eq('user_id', userId);
+    if (record.module_type === 'url') {
+      destination = record.target_url || (record.data as any)?.url || FALLBACK_URL;
+    } else if (record.module_type === 'menu') {
+      // Javna stran menija (frontend route, ki jo je treba še zgraditi — glej opombo v odgovoru)
+      destination = `https://auronio.com/m/${encodeURIComponent(slug)}`;
     } else {
-      await query;
+      destination = FALLBACK_URL;
     }
+
+    // Varnostna zaščita: preusmerjamo samo na http(s) naslove, nikoli na javascript:/data: sheme
+    if (!/^https?:\/\//i.test(destination)) {
+      destination = FALLBACK_URL;
+    }
+
+    return Response.redirect(destination, 302);
   } catch (err) {
-    console.warn('Error deleting from Supabase:', err);
+    console.error('redirect-qr error:', err);
+    return Response.redirect(FALLBACK_URL, 302);
   }
-  return true;
-}
+});
