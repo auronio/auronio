@@ -34,6 +34,16 @@ export function getTierLimits(userTier: UserTier): TierLimits {
         folderDisplayCap: '1 mapa po meri',
         tierName: 'Uporabnik (brezplačno)',
       };
+    case 'partner':
+      return {
+        maxCustomFolders: 8,
+        maxActiveCodes: 30,
+        maxMonthlyScans: 10000,
+        scanDisplayCap: '10.000',
+        codesDisplayCap: '30 kod',
+        folderDisplayCap: '8 map po meri',
+        tierName: 'Partner',
+      };
     case 'premium':
       return {
         maxCustomFolders: 20,
