@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Check, Sparkles, ArrowRight, ShieldCheck, Mail, UserCheck } from 'lucide-react';
 import { QuickInterestModal } from './QuickInterestModal';
+import { PartnerAccessModal } from './PartnerAccessModal';
 
 interface PricingGridProps {
   onScrollToGenerator?: () => void;
@@ -12,6 +13,7 @@ export const PricingGrid: React.FC<PricingGridProps> = ({
   onOpenAuth,
 }) => {
   const [interestTier, setInterestTier] = useState<'beta' | 'partner' | 'pro' | 'business' | null>(null);
+  const [isPartnerAccessOpen, setIsPartnerAccessOpen] = useState(false);
   // Samo ena kartica hkrati je lahko "aktivna" (črna) — ob kliku na kartico ali njen gumb. Vse ostale so bele.
   const [activeDarkCard, setActiveDarkCard] = useState<'gost' | 'beta' | 'partner' | 'pro' | 'business' | null>(null);
 
@@ -215,7 +217,7 @@ export const PricingGrid: React.FC<PricingGridProps> = ({
             onClick={(e) => {
               e.stopPropagation();
               setActiveDarkCard('partner');
-              setInterestTier('partner');
+              setIsPartnerAccessOpen(true);
             }}
             className={`w-full mt-6 py-2.5 px-4 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5 text-center cursor-pointer ${
               activeDarkCard === 'partner'
@@ -360,6 +362,12 @@ export const PricingGrid: React.FC<PricingGridProps> = ({
           tier={interestTier}
         />
       )}
+
+      <PartnerAccessModal
+        isOpen={isPartnerAccessOpen}
+        onClose={() => setIsPartnerAccessOpen(false)}
+        onOpenAuth={onOpenAuth}
+      />
     </section>
   );
 };
