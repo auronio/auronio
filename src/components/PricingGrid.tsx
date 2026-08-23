@@ -12,8 +12,8 @@ export const PricingGrid: React.FC<PricingGridProps> = ({
   onOpenAuth,
 }) => {
   const [interestTier, setInterestTier] = useState<'beta' | 'partner' | 'pro' | 'business' | null>(null);
-  // Samo ena kartica (Partner ALI Poslovno) je hkrati lahko "aktivna" (črna) — ob kliku na kartico ali njen gumb.
-  const [activeDarkCard, setActiveDarkCard] = useState<'partner' | 'business' | null>(null);
+  // Samo ena kartica hkrati je lahko "aktivna" (črna) — ob kliku na kartico ali njen gumb. Vse ostale so bele.
+  const [activeDarkCard, setActiveDarkCard] = useState<'gost' | 'beta' | 'partner' | 'pro' | 'business' | null>(null);
 
   const handleScrollToGenerator = () => {
     if (onScrollToGenerator) {
@@ -41,36 +41,41 @@ export const PricingGrid: React.FC<PricingGridProps> = ({
 
       {/* 5-Column Beta Matrix: Gost / Auronio Beta / Partner / Pro / Poslovno */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
-        {/* Card 1: Gost */}
-        <div className="bg-white border border-slate-200/90 rounded-3xl p-6 flex flex-col justify-between shadow-xs hover:border-slate-300 transition-all">
+        {/* Card 1: Gost — črna postane samo, ko je aktivna (klik na kartico ali gumb) */}
+        <div
+          onClick={() => setActiveDarkCard('gost')}
+          className={`border rounded-3xl p-6 flex flex-col justify-between shadow-xs transition-all cursor-pointer ${
+            activeDarkCard === 'gost' ? 'bg-slate-900 border-slate-900' : 'bg-white border-slate-200/90 hover:border-slate-300'
+          }`}
+        >
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+              <span className={`text-xs font-bold uppercase tracking-wider ${activeDarkCard === 'gost' ? 'text-slate-400' : 'text-slate-500'}`}>
                 JAVNI DOSTOP
               </span>
             </div>
 
             <div>
-              <h3 className="text-xl font-bold text-slate-900">Gost</h3>
+              <h3 className={`text-xl font-bold ${activeDarkCard === 'gost' ? 'text-white' : 'text-slate-900'}`}>Gost</h3>
               <div className="mt-2 flex items-baseline gap-1">
-                <span className="text-3xl font-black text-slate-900">Brezplačno</span>
+                <span className={`text-3xl font-black ${activeDarkCard === 'gost' ? 'text-white' : 'text-slate-900'}`}>Brezplačno</span>
               </div>
-              <p className="text-xs text-slate-500 mt-1">
+              <p className={`text-xs mt-1 ${activeDarkCard === 'gost' ? 'text-slate-400' : 'text-slate-500'}`}>
                 Ustvarite osnovno statično QR kodo brez registracije.
               </p>
             </div>
 
-            <ul className="space-y-2.5 text-xs text-slate-600 pt-3 border-t border-slate-100">
+            <ul className={`space-y-2.5 text-xs pt-3 border-t ${activeDarkCard === 'gost' ? 'text-slate-300 border-slate-700' : 'text-slate-600 border-slate-100'}`}>
               <li className="flex items-center gap-2">
-                <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                <Check className={`w-4 h-4 shrink-0 ${activeDarkCard === 'gost' ? 'text-emerald-400' : 'text-emerald-600'}`} />
                 Osnovno generiranje QR kod
               </li>
               <li className="flex items-center gap-2">
-                <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                <Check className={`w-4 h-4 shrink-0 ${activeDarkCard === 'gost' ? 'text-emerald-400' : 'text-emerald-600'}`} />
                 Takojšen prenos v PNG in SVG
               </li>
               <li className="flex items-center gap-2">
-                <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                <Check className={`w-4 h-4 shrink-0 ${activeDarkCard === 'gost' ? 'text-emerald-400' : 'text-emerald-600'}`} />
                 Brez prijave ali registracije
               </li>
             </ul>
@@ -78,47 +83,58 @@ export const PricingGrid: React.FC<PricingGridProps> = ({
 
           <button
             type="button"
-            onClick={handleScrollToGenerator}
-            className="w-full mt-6 py-2.5 px-4 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-900 transition-all cursor-pointer text-center"
+            onClick={(e) => {
+              e.stopPropagation();
+              setActiveDarkCard('gost');
+              handleScrollToGenerator();
+            }}
+            className={`w-full mt-6 py-2.5 px-4 rounded-xl text-xs font-semibold transition-all cursor-pointer text-center ${
+              activeDarkCard === 'gost' ? 'bg-white hover:bg-slate-100 text-slate-900' : 'bg-slate-100 hover:bg-slate-200 text-slate-900'
+            }`}
           >
             Ustvari QR kodo
           </button>
         </div>
 
-        {/* Card 2: Auronio Beta */}
-        <div className="bg-white border border-slate-200/90 rounded-3xl p-6 flex flex-col justify-between shadow-xs hover:border-slate-300 transition-all">
+        {/* Card 2: Auronio Beta — črna postane samo, ko je aktivna (klik na kartico ali gumb) */}
+        <div
+          onClick={() => setActiveDarkCard('beta')}
+          className={`border rounded-3xl p-6 flex flex-col justify-between shadow-xs transition-all cursor-pointer ${
+            activeDarkCard === 'beta' ? 'bg-slate-900 border-slate-900' : 'bg-white border-slate-200/90 hover:border-slate-300'
+          }`}
+        >
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+              <span className={`text-xs font-bold uppercase tracking-wider ${activeDarkCard === 'beta' ? 'text-slate-400' : 'text-slate-500'}`}>
                 BREZPLAČNI PILOT
               </span>
             </div>
 
             <div>
-              <h3 className="text-xl font-bold text-slate-900">Auronio Beta</h3>
+              <h3 className={`text-xl font-bold ${activeDarkCard === 'beta' ? 'text-white' : 'text-slate-900'}`}>Auronio Beta</h3>
               <div className="mt-2 flex items-baseline gap-1">
-                <span className="text-3xl font-black text-slate-900">0 €</span>
+                <span className={`text-3xl font-black ${activeDarkCard === 'beta' ? 'text-white' : 'text-slate-900'}`}>0 €</span>
               </div>
-              <p className="text-xs text-slate-500 mt-1">
+              <p className={`text-xs mt-1 ${activeDarkCard === 'beta' ? 'text-slate-400' : 'text-slate-500'}`}>
                 Registrirajte se brezplačno in shranjujte svoje QR kode v osebnem arhivu.
               </p>
             </div>
 
-            <ul className="space-y-2.5 text-xs text-slate-600 pt-3 border-t border-slate-100">
+            <ul className={`space-y-2.5 text-xs pt-3 border-t ${activeDarkCard === 'beta' ? 'text-slate-300 border-slate-700' : 'text-slate-600 border-slate-100'}`}>
               <li className="flex items-center gap-2">
-                <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                <Check className={`w-4 h-4 shrink-0 ${activeDarkCard === 'beta' ? 'text-emerald-400' : 'text-emerald-600'}`} />
                 Registracija v manj kot minuti
               </li>
               <li className="flex items-center gap-2">
-                <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                <Check className={`w-4 h-4 shrink-0 ${activeDarkCard === 'beta' ? 'text-emerald-400' : 'text-emerald-600'}`} />
                 Preizkušanje QR modulov
               </li>
               <li className="flex items-center gap-2">
-                <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                <Check className={`w-4 h-4 shrink-0 ${activeDarkCard === 'beta' ? 'text-emerald-400' : 'text-emerald-600'}`} />
                 Povratne informacije neposredno vplivajo na razvoj
               </li>
               <li className="flex items-center gap-2">
-                <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                <Check className={`w-4 h-4 shrink-0 ${activeDarkCard === 'beta' ? 'text-emerald-400' : 'text-emerald-600'}`} />
                 Brez kartice in brez obveznosti
               </li>
             </ul>
@@ -126,8 +142,14 @@ export const PricingGrid: React.FC<PricingGridProps> = ({
 
           <button
             type="button"
-            onClick={() => onOpenAuth?.()}
-            className="w-full mt-6 py-2.5 px-4 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-900 transition-all flex items-center justify-center gap-1.5 text-center cursor-pointer"
+            onClick={(e) => {
+              e.stopPropagation();
+              setActiveDarkCard('beta');
+              onOpenAuth?.();
+            }}
+            className={`w-full mt-6 py-2.5 px-4 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5 text-center cursor-pointer ${
+              activeDarkCard === 'beta' ? 'bg-white hover:bg-slate-100 text-slate-900' : 'bg-slate-100 hover:bg-slate-200 text-slate-900'
+            }`}
           >
             Registriraj se
             <ArrowRight className="w-3.5 h-3.5" />
@@ -206,44 +228,49 @@ export const PricingGrid: React.FC<PricingGridProps> = ({
           </button>
         </div>
 
-        {/* Card 4: Pro (mesečna naročnina — Digistore24 checkout, ko bo odobren) */}
-        <div className="bg-white border border-blue-200 rounded-3xl p-6 flex flex-col justify-between shadow-xs hover:border-blue-300 transition-all relative overflow-hidden">
+        {/* Card 4: Pro (mesečna naročnina — Digistore24 checkout, ko bo odobren) — črna postane samo, ko je aktivna */}
+        <div
+          onClick={() => setActiveDarkCard('pro')}
+          className={`border rounded-3xl p-6 flex flex-col justify-between shadow-xs transition-all relative overflow-hidden cursor-pointer ${
+            activeDarkCard === 'pro' ? 'bg-slate-900 border-slate-900' : 'bg-white border-blue-200 hover:border-blue-300'
+          }`}
+        >
           <div className="absolute top-0 right-0 bg-blue-600 text-white text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-bl-xl">
             Kmalu
           </div>
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-blue-600">
+              <span className={`text-xs font-bold uppercase tracking-wider ${activeDarkCard === 'pro' ? 'text-blue-400' : 'text-blue-600'}`}>
                 NAROČNINA
               </span>
             </div>
 
             <div>
-              <h3 className="text-xl font-bold text-slate-900">Pro</h3>
+              <h3 className={`text-xl font-bold ${activeDarkCard === 'pro' ? 'text-white' : 'text-slate-900'}`}>Pro</h3>
               <div className="mt-2 flex items-baseline gap-1">
-                <span className="text-3xl font-black text-slate-900">9,99 €</span>
-                <span className="text-xs text-slate-500">/mesec</span>
+                <span className={`text-3xl font-black ${activeDarkCard === 'pro' ? 'text-white' : 'text-slate-900'}`}>9,99 €</span>
+                <span className={`text-xs ${activeDarkCard === 'pro' ? 'text-slate-400' : 'text-slate-500'}`}>/mesec</span>
               </div>
-              <p className="text-xs text-slate-500 mt-1">
+              <p className={`text-xs mt-1 ${activeDarkCard === 'pro' ? 'text-slate-400' : 'text-slate-500'}`}>
                 Za posameznike in manjša podjetja, ki redno uporabljajo pametne QR kode.
               </p>
             </div>
 
-            <ul className="space-y-2.5 text-xs text-slate-600 pt-3 border-t border-slate-100">
+            <ul className={`space-y-2.5 text-xs pt-3 border-t ${activeDarkCard === 'pro' ? 'text-slate-300 border-slate-700' : 'text-slate-600 border-slate-100'}`}>
               <li className="flex items-center gap-2">
-                <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                <Check className={`w-4 h-4 shrink-0 ${activeDarkCard === 'pro' ? 'text-emerald-400' : 'text-emerald-600'}`} />
                 Do 20 map po meri
               </li>
               <li className="flex items-center gap-2">
-                <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                <Check className={`w-4 h-4 shrink-0 ${activeDarkCard === 'pro' ? 'text-emerald-400' : 'text-emerald-600'}`} />
                 Do 100 aktivnih QR kod
               </li>
               <li className="flex items-center gap-2">
-                <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                <Check className={`w-4 h-4 shrink-0 ${activeDarkCard === 'pro' ? 'text-emerald-400' : 'text-emerald-600'}`} />
                 Do 50.000 skenov/mesec
               </li>
               <li className="flex items-center gap-2">
-                <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                <Check className={`w-4 h-4 shrink-0 ${activeDarkCard === 'pro' ? 'text-emerald-400' : 'text-emerald-600'}`} />
                 Brez vodnega žiga Auronio
               </li>
             </ul>
@@ -251,8 +278,14 @@ export const PricingGrid: React.FC<PricingGridProps> = ({
 
           <button
             type="button"
-            onClick={() => setInterestTier('pro')}
-            className="w-full mt-6 py-2.5 px-4 rounded-xl text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white transition-all flex items-center justify-center gap-1.5 text-center cursor-pointer"
+            onClick={(e) => {
+              e.stopPropagation();
+              setActiveDarkCard('pro');
+              setInterestTier('pro');
+            }}
+            className={`w-full mt-6 py-2.5 px-4 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5 text-center cursor-pointer ${
+              activeDarkCard === 'pro' ? 'bg-white hover:bg-slate-100 text-slate-900' : 'bg-blue-600 hover:bg-blue-700 text-white'
+            }`}
           >
             <Mail className="w-3.5 h-3.5" />
             Obvesti me ob zagonu
