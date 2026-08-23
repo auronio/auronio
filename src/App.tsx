@@ -27,7 +27,7 @@ import { AnalyticsModal } from './components/AnalyticsModal';
 import { SavedRecordsDrawer } from './components/SavedRecordsDrawer';
 import { AuthModal } from './components/AuthModal';
 import { Footer } from './components/Footer';
-import { supabase, isAdminEmail } from './lib/supabase';
+import { supabase, isAdminEmail, isPartnerEmail } from './lib/supabase';
 
 import { 
   Globe, 
@@ -43,6 +43,13 @@ const extractInitials = (fullName: string): string => {
   if (parts.length === 0 || !parts[0]) return 'U';
   if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
   return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+};
+
+// Prednost: admin > partner (ročno dodan po podpisu pogodbe) > navaden registriran uporabnik.
+const resolveUserTier = (email: string | null | undefined): UserTier => {
+  if (isAdminEmail(email)) return 'enterprise';
+  if (isPartnerEmail(email)) return 'partner';
+  return 'uporabnik';
 };
 
 export default function App() {
@@ -257,7 +264,7 @@ END:VCARD`;
       if (user) {
         const name = (user.user_metadata?.name as string) || user.email?.split('@')[0] || 'Uporabnik';
         setAuthUser({ id: user.id, name, email: user.email || '', initials: extractInitials(name) });
-        setUserTier(isAdminEmail(user.email) ? 'enterprise' : 'uporabnik');
+        setUserTier(resolveUserTier(user.email));
       }
       setAuthChecked(true);
     });
@@ -267,7 +274,7 @@ END:VCARD`;
       if (user) {
         const name = (user.user_metadata?.name as string) || user.email?.split('@')[0] || 'Uporabnik';
         setAuthUser({ id: user.id, name, email: user.email || '', initials: extractInitials(name) });
-        setUserTier(isAdminEmail(user.email) ? 'enterprise' : 'uporabnik');
+        setUserTier(resolveUserTier(user.email));
       } else {
         setAuthUser(null);
         setUserTier('gost');
@@ -471,7 +478,7 @@ END:VCARD`;
         onClose={() => setIsAuthModalOpen(false)}
         onAuthSuccess={(user) => {
           setAuthUser(user);
-          setUserTier(isAdminEmail(user.email) ? 'enterprise' : 'uporabnik');
+          setUserTier(resolveUserTier(user.email));
           setIsSavedDrawerOpen(true);
         }}
       />
