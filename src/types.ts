@@ -1,6 +1,6 @@
 export type ModuleType = 'url' | 'linktree' | 'menu' | 'vcard' | 'wifi' | 'video';
 
-export type UserTier = 'gost' | 'uporabnik' | 'premium' | 'enterprise';
+export type UserTier = 'gost' | 'uporabnik' | 'partner' | 'premium' | 'enterprise';
 
 export interface AuthUser {
   id: string;
