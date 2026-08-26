@@ -8,8 +8,7 @@ interface PartnerAccessModalProps {
 }
 
 // E-mail naslov, na katerega partnerji pošljejo podpisano pogodbo.
-// Igor: če želiš drug naslov (npr. specifičen partner@auronio.com), samo zamenjaj spodnjo vrstico.
-const PARTNER_CONTACT_EMAIL = 'igorkuzelj@tech-center.com';
+const PARTNER_CONTACT_EMAIL = 'info@auronio.com';
 const CONTRACT_PATH = '/Auronio_Podjemna_pogodba.pdf';
 
 export const PartnerAccessModal: React.FC<PartnerAccessModalProps> = ({ isOpen, onClose, onOpenAuth }) => {
