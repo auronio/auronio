@@ -178,6 +178,10 @@ export const PreviewTerminal: React.FC<PreviewTerminalProps> = ({
     return combined;
   }, [customFolders]);
 
+  // Neposredna, zanesljiva pot do preusmeritvene funkcije — obide Render (ki trenutno
+  // napačno prezre /r/* pravilo), dokler Render podpora ne razreši svoje napake.
+  const DIRECT_REDIRECT_BASE = 'https://qfqekeeoppgsvyixqhkt.supabase.co/functions/v1/quick-endpoint';
+
   // Effective payload value
   const effectivePayload = React.useMemo(() => {
     if (activeModule === 'url' && moduleData) {
@@ -185,15 +189,13 @@ export const PreviewTerminal: React.FC<PreviewTerminalProps> = ({
       if (uData.pathType === 'static') {
         return uData.url || 'https://auronio.com';
       }
-      const rawSlug = uData.customSlug || uData.slug || 'predloga';
-      const cleanSlug = rawSlug.startsWith('/') ? rawSlug : `/r/${rawSlug}`;
-      return `https://auronio.com${cleanSlug}`;
+      const rawSlug = (uData.customSlug || uData.slug || 'predloga').replace(/^\/?(r\/)?/, '');
+      return `${DIRECT_REDIRECT_BASE}/${rawSlug}`;
     }
     if (activeModule === 'menu' && moduleData) {
       const mData = moduleData as any;
-      const rawSlug = mData.slug || 'meni';
-      const cleanSlug = rawSlug.startsWith('/') ? rawSlug : `/r/${rawSlug}`;
-      return `https://auronio.com${cleanSlug}`;
+      const rawSlug = (mData.slug || 'meni').replace(/^\/?(r\/)?/, '');
+      return `${DIRECT_REDIRECT_BASE}/${rawSlug}`;
     }
     if (activeModule === 'wifi' && moduleData) {
       const wData = moduleData as any;
