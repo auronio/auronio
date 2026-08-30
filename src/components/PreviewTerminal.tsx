@@ -50,7 +50,8 @@ import {
   ChevronDown,
   Video,
   Utensils,
-  Wifi
+  Wifi,
+  Zap
 } from 'lucide-react';
 
 const getQrOptions = (
@@ -364,9 +365,25 @@ export const PreviewTerminal: React.FC<PreviewTerminalProps> = ({
             <div ref={qrContainerRef} className="flex items-center justify-center overflow-hidden" />
           </div>
 
-          <p className="text-[11px] text-slate-500 mt-4 text-center font-mono max-w-xs truncate" title={effectivePayload}>
-            {effectivePayload.length > 35 ? effectivePayload.slice(0, 35) + '...' : effectivePayload}
-          </p>
+          {/* Prijazen prikaz povezave: dinamične (Supabase) povezave so tehnično videti manj lepe,
+              zato jih prikažemo kot oznako z gumbom za kopiranje namesto surovega URL-ja.
+              Statične povezave (redko dolge) še vedno prikažemo neposredno. */}
+          {activeModule === 'url' && (moduleData as any)?.pathType === 'dynamic' ? (
+            <button
+              type="button"
+              onClick={handleCopyPayload}
+              className="mt-4 flex items-center gap-1.5 text-[11px] font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-full transition-colors"
+              title="Kopiraj dejansko povezavo"
+            >
+              <Zap className="w-3 h-3 text-blue-600" />
+              Dinamična povezava (aktivna)
+              <Copy className="w-3 h-3" />
+            </button>
+          ) : (
+            <p className="text-[11px] text-slate-500 mt-4 text-center font-mono max-w-xs truncate" title={effectivePayload}>
+              {effectivePayload.length > 35 ? effectivePayload.slice(0, 35) + '...' : effectivePayload}
+            </p>
+          )}
 
           {activeModule === 'video' && (
             <button
