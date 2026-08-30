@@ -243,8 +243,8 @@ export const MenuModule: React.FC<MenuModuleProps> = ({ data, onChange }) => {
               className="w-full px-3.5 py-2.5 text-xs text-[#1D1D1F] font-mono focus:outline-none"
             />
           </div>
-          <p className="text-[11px] text-stone-500 mt-1 font-mono">
-            Povezava na namiznih nalepkah: <strong className="text-blue-600">auronio.com/r/{data.slug || 'meni'}</strong>
+          <p className="text-[11px] text-amber-700 mt-1 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
+            ⚠️ Priporočamo samo skeniranje QR kode. Kratka povezava za ročno tipkanje na nalepkah še ni na voljo — pride kmalu.
           </p>
         </div>
 
