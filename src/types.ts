@@ -1,4 +1,4 @@
-export type ModuleType = 'url' | 'linktree' | 'menu' | 'vcard' | 'wifi' | 'video';
+export type ModuleType = 'upn' | 'url' | 'linktree' | 'menu' | 'vcard' | 'wifi' | 'video';
 
 export type UserTier = 'gost' | 'uporabnik' | 'partner' | 'premium' | 'enterprise';
 
@@ -80,6 +80,24 @@ export interface WifiData {
   hidden: boolean;
 }
 
+// Podatki za UPN QR (slovenski univerzalni plačilni nalog).
+// Poimenovanje in največje dolžine polj sledijo uradnim ZBS navodilom
+// ("Navodilo za pripravo izpisa UPN QR registriranih izdajateljev za programerje").
+export interface UpnData {
+  payerName: string;
+  payerAddress: string;
+  payerPlace: string;
+  amount: number; // v EUR, npr. 81.05
+  purposeCode: string; // 4 velike črke, npr. "RENT", "COST", "OTHR"
+  purposeText: string;
+  dueDate: string; // format "DD.MM.LLLL" ali prazno
+  recipientIban: string;
+  recipientReference: string; // model + sklic skupaj, npr. "SI121234567890120"
+  recipientName: string;
+  recipientAddress: string;
+  recipientPlace: string;
+}
+
 export interface VideoData {
   videoUrl: string;
   title: string;
@@ -105,7 +123,7 @@ export interface QrRecord {
   folder: FolderCategory;
   moduleType: ModuleType;
   payload: string;
-  data: UrlData | LinktreeData | MenuData | VCardData | WifiData | VideoData;
+  data: UrlData | LinktreeData | MenuData | VCardData | WifiData | VideoData | UpnData;
   style: QrStyleConfig;
   userTier: UserTier;
   createdAt: string;
