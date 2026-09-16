@@ -8,11 +8,14 @@ import {
   VCardData, 
   WifiData, 
   VideoData,
+  UpnData,
   QrRecord,
   AuthUser,
   QrStyleConfig
 } from './types';
 import { Header } from './components/Header';
+import { UpnModule } from './components/modules/UpnModule';
+import { buildUpnPayload } from './lib/upnQr';
 import { UrlModule } from './components/modules/UrlModule';
 import { LinktreeModule } from './components/modules/LinktreeModule';
 import { MenuModule } from './components/modules/MenuModule';
@@ -35,7 +38,8 @@ import {
   Utensils, 
   Contact, 
   Wifi, 
-  Video
+  Video,
+  Landmark
 } from 'lucide-react';
 
 const extractInitials = (fullName: string): string => {
@@ -162,6 +166,22 @@ export default function App() {
     hidden: false,
   });
 
+  const [upnData, setUpnData] = useState<UpnData>({
+    payerName: 'Testni uporabnik',
+    payerAddress: 'Slikarjeva ulica 1',
+    payerPlace: '1000 Ljubljana',
+    amount: 1.00,
+    purposeCode: 'COST',
+    purposeText: 'Obveznosti za 8/2026',
+    dueDate: '',
+    // ⚠️ Demonstracijski IBAN — pred uporabo zamenjajte z resničnim IBAN-om prejemnika.
+    recipientIban: 'SI56 9999 9999 9999 999',
+    recipientReference: 'SI00 2026-123',
+    recipientName: 'Demo prejemnik d.o.o.',
+    recipientAddress: 'Testna ulica 22',
+    recipientPlace: '1333 Kraj',
+  });
+
   const [videoData, setVideoData] = useState<VideoData>({
     videoUrl: 'https://youtu.be/P59wQ4SXtsg',
     title: 'Ekskluzivna predstavitev Auronio',
@@ -174,6 +194,17 @@ export default function App() {
   // Calculate payload string reactively based on active module data
   const payloadString = useMemo(() => {
     switch (activeModule) {
+      case 'upn': {
+        // Za UPN QR se dejanska slika ne izriše preko tega niza (glej PreviewTerminal,
+        // ki za 'upn' uporablja lasten ISO-8859-2 + ECI izris), a niz še vedno
+        // prikažemo uporabniku (npr. za "Kopiraj vsebino") in ga shranimo v zapis.
+        try {
+          return buildUpnPayload(upnData);
+        } catch {
+          return 'UPNQR (neveljavni podatki)';
+        }
+      }
+
       case 'url': {
         if (urlData.pathType === 'static') {
           return urlData.url || 'https://auronio.com';
@@ -218,11 +249,13 @@ END:VCARD`;
       default:
         return 'https://auronio.com';
     }
-  }, [activeModule, urlData, linktreeData, menuData, vcardData, wifiData, videoData]);
+  }, [activeModule, urlData, linktreeData, menuData, vcardData, wifiData, videoData, upnData]);
 
   // Active module data selector
   const currentModuleData = useMemo(() => {
     switch (activeModule) {
+      case 'upn':
+        return upnData;
       case 'url':
         return urlData;
       case 'linktree':
@@ -236,7 +269,7 @@ END:VCARD`;
       case 'video':
         return videoData;
     }
-  }, [activeModule, urlData, linktreeData, menuData, vcardData, wifiData, videoData]);
+  }, [activeModule, urlData, linktreeData, menuData, vcardData, wifiData, videoData, upnData]);
 
   // Load a record from saved drawer
   const handleSelectRecord = (record: QrRecord) => {
@@ -250,6 +283,7 @@ END:VCARD`;
     if (record.moduleType === 'vcard') setVcardData(record.data as VCardData);
     if (record.moduleType === 'wifi') setWifiData(record.data as WifiData);
     if (record.moduleType === 'video') setVideoData(record.data as VideoData);
+    if (record.moduleType === 'upn') setUpnData(record.data as UpnData);
   };
 
   const handleScrollToGenerator = () => {
@@ -327,6 +361,20 @@ END:VCARD`;
         {/* DECOUPLED MODULAR NAVIGATION TABS */}
         <div className="p-1.5 bg-white border border-slate-200/90 rounded-2xl shadow-xs overflow-x-auto scrollbar-none">
           <nav className="flex space-x-1 min-w-max">
+            {/* Tab 0: UPN QR */}
+            <button
+              type="button"
+              onClick={() => setActiveModule('upn')}
+              className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+                activeModule === 'upn'
+                  ? 'bg-[#0066CC] text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
+              }`}
+            >
+              <Landmark className="w-4 h-4" />
+              UPN QR
+            </button>
+
             {/* Tab 1: Spletna stran */}
             <button
               type="button"
@@ -417,6 +465,10 @@ END:VCARD`;
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           {/* LEFT SIDE: ACTIVE MODULE FORM ENTRY */}
           <div className="lg:col-span-7 bg-white border border-slate-200/90 rounded-3xl p-6 sm:p-8 shadow-sm">
+            {activeModule === 'upn' && (
+              <UpnModule data={upnData} onChange={setUpnData} />
+            )}
+
             {activeModule === 'url' && (
               <UrlModule data={urlData} onChange={setUrlData} />
             )}
