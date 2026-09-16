@@ -8,8 +8,11 @@ import {
   UserTier, 
   DotStyle, 
   QrRecord,
-  VideoData 
+  VideoData,
+  UpnData
 } from '../types';
+import { buildUpnPayload, encodeUpnQrCode, drawUpnQrToCanvas, buildUpnQrSvg } from '../lib/upnQr';
+import { QrCode } from '../lib/qrcodegen';
 import { syncRecordToSupabase, fetchAllRecords } from '../lib/supabase';
 import { getTierLimits } from '../lib/limits';
 
@@ -169,6 +172,10 @@ export const PreviewTerminal: React.FC<PreviewTerminalProps> = ({
 
   const qrCodeRef = useRef<QRCodeStyling | null>(null);
   const qrContainerRef = useRef<HTMLDivElement>(null);
+  // Za UPN QR ne uporabljamo QRCodeStyling (ne podpira ECI/ISO-8859-2), zato si
+  // shranimo zadnjo uspešno zgrajeno kodo tu — za download gumbe spodaj.
+  const upnQrRef = useRef<QrCode | null>(null);
+  const [upnError, setUpnError] = useState<string | null>(null);
 
   const isPremiumOrEnterprise = userTier === 'premium' || userTier === 'enterprise';
 
@@ -212,6 +219,32 @@ export const PreviewTerminal: React.FC<PreviewTerminalProps> = ({
 
   // Real-time QR Code Styling canvas initialization and update loop
   useEffect(() => {
+    // UPN QR gre po ločeni poti: qr-code-styling zna narediti samo UTF-8 Byte
+    // segmente, ZBS standard pa zahteva ročno grajen ECI(4) + Byte(ISO-8859-2)
+    // segment in fiksno verzijo 15 / ECC M — zato tu rišemo sami na <canvas>.
+    if (activeModule === 'upn') {
+      qrCodeRef.current = null;
+      if (!qrContainerRef.current) return;
+      qrContainerRef.current.innerHTML = '';
+      const canvas = document.createElement('canvas');
+      qrContainerRef.current.appendChild(canvas);
+      try {
+        const payload = buildUpnPayload(moduleData as UpnData);
+        const qr = encodeUpnQrCode(payload);
+        upnQrRef.current = qr;
+        setUpnError(null);
+        const displaySize = qrStyle.size || 220;
+        const scale = Math.max(2, Math.round(displaySize / (qr.size + 8)));
+        drawUpnQrToCanvas(qr, canvas, scale);
+        canvas.style.width = `${displaySize}px`;
+        canvas.style.height = `${displaySize}px`;
+      } catch (err) {
+        upnQrRef.current = null;
+        setUpnError(err instanceof Error ? err.message : 'Napaka pri gradnji UPN QR kode.');
+      }
+      return;
+    }
+
     const options = getQrOptions(effectivePayload, qrStyle, isPremiumOrEnterprise);
     if (!qrCodeRef.current) {
       qrCodeRef.current = new QRCodeStyling(options);
@@ -222,11 +255,24 @@ export const PreviewTerminal: React.FC<PreviewTerminalProps> = ({
     } else {
       qrCodeRef.current.update(options);
     }
-  }, [effectivePayload, qrStyle, isPremiumOrEnterprise]);
+  }, [activeModule, effectivePayload, moduleData, qrStyle, isPremiumOrEnterprise]);
 
   // Download PNG
   const handleDownloadPng = async () => {
     const fileName = `Auronio_${customTitle ? customTitle.replace(/\s+/g, '_') : activeModule}_QR`;
+    if (activeModule === 'upn') {
+      if (!upnQrRef.current) return;
+      // Visoka ločljivost za tisk (10 px/modul -> ~770x770px za verzijo 15,
+      // primerljivo z "Version 15 (77x77 modulov), 770 x 770 px" iz referenčnega generatorja).
+      const exportCanvas = document.createElement('canvas');
+      drawUpnQrToCanvas(upnQrRef.current, exportCanvas, 10);
+      const url = exportCanvas.toDataURL('image/png');
+      const a = document.createElement('a');
+      a.download = `${fileName}.png`;
+      a.href = url;
+      a.click();
+      return;
+    }
     if (qrCodeRef.current) {
       await qrCodeRef.current.download({ name: fileName, extension: 'png' });
     } else {
@@ -243,6 +289,18 @@ export const PreviewTerminal: React.FC<PreviewTerminalProps> = ({
   // Download Vector SVG
   const handleDownloadSvg = async () => {
     const fileName = `Auronio_${customTitle ? customTitle.replace(/\s+/g, '_') : activeModule}_QR`;
+    if (activeModule === 'upn') {
+      if (!upnQrRef.current) return;
+      const svg = buildUpnQrSvg(upnQrRef.current, 10);
+      const blob = new Blob([svg], { type: 'image/svg+xml' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.download = `${fileName}.svg`;
+      a.href = url;
+      a.click();
+      URL.revokeObjectURL(url);
+      return;
+    }
     if (qrCodeRef.current) {
       await qrCodeRef.current.download({ name: fileName, extension: 'svg' });
     }
@@ -364,6 +422,12 @@ export const PreviewTerminal: React.FC<PreviewTerminalProps> = ({
           <div className="p-4 bg-white rounded-2xl shadow-md border border-slate-200/70 transition-transform group-hover:scale-[1.02] duration-300">
             <div ref={qrContainerRef} className="flex items-center justify-center overflow-hidden" />
           </div>
+
+          {activeModule === 'upn' && upnError && (
+            <div className="mt-3 w-full p-2.5 bg-rose-50 border border-rose-200 rounded-xl text-[11px] text-rose-700 text-center">
+              {upnError}
+            </div>
+          )}
 
           {/* Prijazen prikaz povezave: dinamične (Supabase) povezave so tehnično videti manj lepe,
               zato jih prikažemo kot oznako z gumbom za kopiranje namesto surovega URL-ja.
@@ -557,6 +621,14 @@ export const PreviewTerminal: React.FC<PreviewTerminalProps> = ({
           )}
         </div>
 
+        {activeModule === 'upn' ? (
+          <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-900">
+            Oblikovanje (barve, pikčasti stili, logotip) za UPN QR ni na voljo. Banke kodo strogo
+            skenirajo po ZBS standardu (črno-belo, brez slike na sredini) — spreminjanje videza bi
+            lahko povzročilo, da banka kode ne prebere pravilno.
+          </div>
+        ) : (
+        <>
         {/* Basic Colors */}
         <div className="grid grid-cols-2 gap-3">
           <div>
@@ -634,6 +706,8 @@ export const PreviewTerminal: React.FC<PreviewTerminalProps> = ({
             />
           </div>
         </div>
+        </>
+        )}
       </div>
     </div>
   );
