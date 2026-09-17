@@ -58,7 +58,7 @@ const resolveUserTier = (email: string | null | undefined): UserTier => {
 
 export default function App() {
   // Navigation & Tier State
-  const [activeModule, setActiveModule] = useState<ModuleType>('url');
+  const [activeModule, setActiveModule] = useState<ModuleType>('upn');
   // Privzeto je vsak obiskovalec 'gost' (brez prijave). Prava prijava (Supabase Auth)
   // spodaj samodejno nastavi pravi nivo ('uporabnik' ali 'enterprise' za admin e-maile).
   const [userTier, setUserTier] = useState<UserTier>('gost');
