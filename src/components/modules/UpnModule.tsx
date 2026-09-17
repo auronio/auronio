@@ -1,6 +1,6 @@
 import React from 'react';
 import { UpnData } from '../../types';
-import { validateUpnData, UPN_MAX_LENGTHS } from '../../lib/upnQr';
+import { validateUpnData, UPN_MAX_LENGTHS, groupWithSpaces } from '../../lib/upnQr';
 import { Landmark, Info, AlertTriangle, CheckCircle2 } from 'lucide-react';
 
 interface UpnModuleProps {
@@ -162,7 +162,8 @@ export const UpnModule: React.FC<UpnModuleProps> = ({ data, onChange }) => {
               type="text"
               placeholder="SI56 0201 7001 4356 205"
               value={data.recipientIban}
-              onChange={(e) => set({ recipientIban: e.target.value })}
+              onChange={(e) => set({ recipientIban: groupWithSpaces(e.target.value) })}
+              maxLength={UPN_MAX_LENGTHS.recipientIban + 8}
               className={`${fieldClass} ${borderClass('recipientIban')}`}
             />
             {issueFor('recipientIban') && (
@@ -177,8 +178,8 @@ export const UpnModule: React.FC<UpnModuleProps> = ({ data, onChange }) => {
               type="text"
               placeholder="SI12 1234567890120"
               value={data.recipientReference}
-              onChange={(e) => set({ recipientReference: e.target.value })}
-              maxLength={UPN_MAX_LENGTHS.recipientReference}
+              onChange={(e) => set({ recipientReference: groupWithSpaces(e.target.value) })}
+              maxLength={UPN_MAX_LENGTHS.recipientReference + 8}
               className={`${fieldClass} ${borderClass('recipientReference')}`}
             />
           </div>
