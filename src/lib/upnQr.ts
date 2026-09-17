@@ -18,6 +18,17 @@ export const UPN_MAX_LENGTHS = {
 	recipientPlace: 33,
 } as const;
 
+// Vstavi presledek na vsake 4 znake (za lepši prikaz IBAN-a/referenc v vnosnem
+// polju — "SI56 9999 9999 9999 999"). To je samo za prikaz: buildUpnPayload()
+// spodaj vseeno vedno odstrani presledke, preden niz gre v QR kodo, ker ZBS
+// standard zahteva IBAN/referenco v QR-ju BREZ presledkov.
+export function groupWithSpaces(value: string, groupSize = 4): string {
+	const clean = value.replace(/\s+/g, '').toUpperCase();
+	const groups: string[] = [];
+	for (let i = 0; i < clean.length; i += groupSize) groups.push(clean.slice(i, i + groupSize));
+	return groups.join(' ');
+}
+
 export interface UpnValidationIssue {
 	field: keyof UpnData;
 	message: string;
@@ -55,7 +66,11 @@ export function validateUpnData(d: UpnData): UpnValidationIssue[] {
 		issues.push({ field: 'dueDate', message: 'Rok plačila mora biti v obliki DD.MM.LLLL ali prazen.' });
 
 	(Object.keys(UPN_MAX_LENGTHS) as Array<keyof typeof UPN_MAX_LENGTHS>).forEach((field) => {
-		const val = String((d as any)[field] ?? '');
+		let val = String((d as any)[field] ?? '');
+		// IBAN in referenca se v vnosnem polju prikazujeta s presledki (glej
+		// groupWithSpaces) — presledki se ne štejejo v dovoljeno dolžino polja.
+		if (field === 'recipientIban' || field === 'recipientReference')
+			val = val.replace(/\s+/g, '');
 		const max = UPN_MAX_LENGTHS[field];
 		if (val.length > max)
 			issues.push({ field: field as keyof UpnData, message: `Polje je predolgo (${val.length}/${max} znakov).` });
