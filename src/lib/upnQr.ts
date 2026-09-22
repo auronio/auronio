@@ -29,6 +29,19 @@ export function groupWithSpaces(value: string, groupSize = 4): string {
 	return groups.join(' ');
 }
 
+// Splošno preverjanje IBAN-a (MOD-97 kontrolna vsota, ISO 7064) — standard
+// dovoljuje kateri koli SEPA IBAN za prejemnika, ne samo slovenski.
+export function isValidIban(rawIban: string): boolean {
+	const iban = rawIban.replace(/\s+/g, '').toUpperCase();
+	if (!/^[A-Z]{2}[0-9]{2}[A-Z0-9]{11,30}$/.test(iban)) return false;
+	const rearranged = iban.slice(4) + iban.slice(0, 4);
+	const numeric = rearranged.replace(/[A-Z]/g, (ch) => (ch.charCodeAt(0) - 55).toString());
+	let remainder = 0;
+	for (let i = 0; i < numeric.length; i += 7)
+		remainder = parseInt(remainder.toString() + numeric.substring(i, i + 7), 10) % 97;
+	return remainder === 1;
+}
+
 export interface UpnValidationIssue {
 	field: keyof UpnData;
 	message: string;
@@ -59,8 +72,8 @@ export function validateUpnData(d: UpnData): UpnValidationIssue[] {
 		issues.push({ field: 'amount', message: 'Znesek mora biti večji od 0.' });
 
 	const ibanClean = (d.recipientIban || '').replace(/\s+/g, '').toUpperCase();
-	if (ibanClean && !/^SI56[0-9]{15}$/.test(ibanClean))
-		issues.push({ field: 'recipientIban', message: 'IBAN mora biti slovenski, oblika SI56 + 15 številk (skupaj 19 znakov).' });
+	if (ibanClean && !isValidIban(ibanClean))
+		issues.push({ field: 'recipientIban', message: 'IBAN ni veljaven (napačna kontrolna vsota) — preverite, da ste ga pravilno prepisali.' });
 
 	if (d.dueDate && !/^\d{2}\.\d{2}\.\d{4}$/.test(d.dueDate))
 		issues.push({ field: 'dueDate', message: 'Rok plačila mora biti v obliki DD.MM.LLLL ali prazen.' });
