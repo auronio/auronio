@@ -174,8 +174,8 @@ export default function App() {
     purposeCode: 'COST',
     purposeText: 'Obveznosti za 8/2026',
     dueDate: '',
-    // ⚠️ Demonstracijski IBAN — pred uporabo zamenjajte z resničnim IBAN-om prejemnika.
-    recipientIban: 'SI56 9999 9999 9999 999',
+    // ⚠️ Demonstracijski IBAN (iz uradnega ZBS primera) — pred uporabo zamenjajte z resničnim IBAN-om prejemnika.
+    recipientIban: 'SI56 0201 7001 4356 205',
     recipientReference: 'SI00 2026-123',
     recipientName: 'Demo prejemnik d.o.o.',
     recipientAddress: 'Testna ulica 22',
