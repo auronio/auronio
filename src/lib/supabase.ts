@@ -11,30 +11,29 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   },
 });
 
-// Admin allowlist — ti e-mail naslovi dobijo poln (enterprise) dostop brez omejitev,
-// takoj ko se registrirajo/prijavijo z real Supabase Auth kontom.
-// Dodaj svoj e-mail sem, da lahko testiraš portal brez omejitev.
-export const ADMIN_EMAILS: string[] = [
-  'igorkuzelj@tech-center.com',
-  'igorkuzelj8@gmail.com',
-  'igor.kuzelj@gs-sevnica.si',
-];
+// ⚠️ OPOMBA (varnostna nadgradnja): prej je bil tu trdo kodiran seznam admin/partner
+// e-mailov, ki ga je brskalnik slepo zaupal. To je bilo javno vidno v repo-ju IN
+// client-side preverjanje ni nič dejansko ščitilo. Zdaj je "resnica" o paketu (tier)
+// shranjena v Supabase tabeli `profiles`, ki jo lahko spremeni samo admin preko SQL
+// Editorja (glej security_migration.sql) — ne več preko kode, ki gre v brskalnik.
+// Spremembo admin/partner paketa torej odslej delaš v Supabase, ne v tej datoteki.
 
-export function isAdminEmail(email: string | null | undefined): boolean {
-  if (!email) return false;
-  return ADMIN_EMAILS.map((e) => e.toLowerCase()).includes(email.toLowerCase());
-}
-
-// Seznam e-mailov partnerjev, ki so podpisali Partner pogodbo (glej Auronio_Podjemna_pogodba.pdf).
-// Igor: ko prejmeš podpisano pogodbo od partnerja, tukaj dodaj njegov e-mail (tisti, s katerim se je registriral).
-// Ob naslednji prijavi samodejno dobi razširjene 'partner' limite namesto navadnega brezplačnega paketa.
-export const PARTNER_EMAILS: string[] = [
-  // 'partner1@podjetje.si',
-];
-
-export function isPartnerEmail(email: string | null | undefined): boolean {
-  if (!email) return false;
-  return PARTNER_EMAILS.map((e) => e.toLowerCase()).includes(email.toLowerCase());
+// Prebere resnični (strežniško overjen) paket trenutno prijavljenega uporabnika.
+// Vedno vrne nekaj uporabnega — če vrstica še ne obstaja (npr. trigger še ni ujel
+// registracije) ali je napaka v povezavi, varno pade nazaj na 'uporabnik'.
+export async function fetchUserTier(userId: string): Promise<import('../types').UserTier> {
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('tier')
+      .eq('user_id', userId)
+      .maybeSingle();
+    if (error || !data?.tier) return 'uporabnik';
+    return data.tier as import('../types').UserTier;
+  } catch (err) {
+    console.warn('Napaka pri branju paketa (profiles.tier):', err);
+    return 'uporabnik';
+  }
 }
 
 const LOCAL_STORAGE_KEY = 'auronio_qr_records_v1';
