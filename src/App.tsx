@@ -8,14 +8,11 @@ import {
   VCardData, 
   WifiData, 
   VideoData,
-  UpnData,
   QrRecord,
   AuthUser,
   QrStyleConfig
 } from './types';
 import { Header } from './components/Header';
-import { UpnModule } from './components/modules/UpnModule';
-import { buildUpnPayload } from './lib/upnQr';
 import { UrlModule } from './components/modules/UrlModule';
 import { LinktreeModule } from './components/modules/LinktreeModule';
 import { MenuModule } from './components/modules/MenuModule';
@@ -30,7 +27,7 @@ import { AnalyticsModal } from './components/AnalyticsModal';
 import { SavedRecordsDrawer } from './components/SavedRecordsDrawer';
 import { AuthModal } from './components/AuthModal';
 import { Footer } from './components/Footer';
-import { supabase, isAdminEmail, isPartnerEmail } from './lib/supabase';
+import { supabase, fetchUserTier } from './lib/supabase';
 
 import { 
   Globe, 
@@ -38,8 +35,7 @@ import {
   Utensils, 
   Contact, 
   Wifi, 
-  Video,
-  Landmark
+  Video
 } from 'lucide-react';
 
 const extractInitials = (fullName: string): string => {
@@ -49,16 +45,9 @@ const extractInitials = (fullName: string): string => {
   return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
 };
 
-// Prednost: admin > partner (ročno dodan po podpisu pogodbe) > navaden registriran uporabnik.
-const resolveUserTier = (email: string | null | undefined): UserTier => {
-  if (isAdminEmail(email)) return 'enterprise';
-  if (isPartnerEmail(email)) return 'partner';
-  return 'uporabnik';
-};
-
 export default function App() {
   // Navigation & Tier State
-  const [activeModule, setActiveModule] = useState<ModuleType>('upn');
+  const [activeModule, setActiveModule] = useState<ModuleType>('url');
   // Privzeto je vsak obiskovalec 'gost' (brez prijave). Prava prijava (Supabase Auth)
   // spodaj samodejno nastavi pravi nivo ('uporabnik' ali 'enterprise' za admin e-maile).
   const [userTier, setUserTier] = useState<UserTier>('gost');
@@ -166,22 +155,6 @@ export default function App() {
     hidden: false,
   });
 
-  const [upnData, setUpnData] = useState<UpnData>({
-    payerName: 'Testni uporabnik',
-    payerAddress: 'Slikarjeva ulica 1',
-    payerPlace: '1000 Ljubljana',
-    amount: 1.00,
-    purposeCode: 'COST',
-    purposeText: 'Obveznosti za 8/2026',
-    dueDate: '',
-    // ⚠️ Demonstracijski IBAN (iz uradnega ZBS primera) — pred uporabo zamenjajte z resničnim IBAN-om prejemnika.
-    recipientIban: 'SI56 0201 7001 4356 205',
-    recipientReference: 'SI00 2026-123',
-    recipientName: 'Demo prejemnik d.o.o.',
-    recipientAddress: 'Testna ulica 22',
-    recipientPlace: '1333 Kraj',
-  });
-
   const [videoData, setVideoData] = useState<VideoData>({
     videoUrl: 'https://youtu.be/P59wQ4SXtsg',
     title: 'Ekskluzivna predstavitev Auronio',
@@ -194,17 +167,6 @@ export default function App() {
   // Calculate payload string reactively based on active module data
   const payloadString = useMemo(() => {
     switch (activeModule) {
-      case 'upn': {
-        // Za UPN QR se dejanska slika ne izriše preko tega niza (glej PreviewTerminal,
-        // ki za 'upn' uporablja lasten ISO-8859-2 + ECI izris), a niz še vedno
-        // prikažemo uporabniku (npr. za "Kopiraj vsebino") in ga shranimo v zapis.
-        try {
-          return buildUpnPayload(upnData);
-        } catch {
-          return 'UPNQR (neveljavni podatki)';
-        }
-      }
-
       case 'url': {
         if (urlData.pathType === 'static') {
           return urlData.url || 'https://auronio.com';
@@ -249,13 +211,11 @@ END:VCARD`;
       default:
         return 'https://auronio.com';
     }
-  }, [activeModule, urlData, linktreeData, menuData, vcardData, wifiData, videoData, upnData]);
+  }, [activeModule, urlData, linktreeData, menuData, vcardData, wifiData, videoData]);
 
   // Active module data selector
   const currentModuleData = useMemo(() => {
     switch (activeModule) {
-      case 'upn':
-        return upnData;
       case 'url':
         return urlData;
       case 'linktree':
@@ -269,7 +229,7 @@ END:VCARD`;
       case 'video':
         return videoData;
     }
-  }, [activeModule, urlData, linktreeData, menuData, vcardData, wifiData, videoData, upnData]);
+  }, [activeModule, urlData, linktreeData, menuData, vcardData, wifiData, videoData]);
 
   // Load a record from saved drawer
   const handleSelectRecord = (record: QrRecord) => {
@@ -283,7 +243,6 @@ END:VCARD`;
     if (record.moduleType === 'vcard') setVcardData(record.data as VCardData);
     if (record.moduleType === 'wifi') setWifiData(record.data as WifiData);
     if (record.moduleType === 'video') setVideoData(record.data as VideoData);
-    if (record.moduleType === 'upn') setUpnData(record.data as UpnData);
   };
 
   const handleScrollToGenerator = () => {
@@ -293,12 +252,12 @@ END:VCARD`;
   // Ob nalaganju preveri, ali je uporabnik že prijavljen (obstoječa Supabase seja),
   // in poslušaj spremembe prijave (login/logout/potrditev e-maila) v realnem času.
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
+    supabase.auth.getSession().then(async ({ data }) => {
       const user = data.session?.user;
       if (user) {
         const name = (user.user_metadata?.name as string) || user.email?.split('@')[0] || 'Uporabnik';
         setAuthUser({ id: user.id, name, email: user.email || '', initials: extractInitials(name) });
-        setUserTier(resolveUserTier(user.email));
+        setUserTier(await fetchUserTier(user.id));
       }
       setAuthChecked(true);
     });
@@ -308,7 +267,7 @@ END:VCARD`;
       if (user) {
         const name = (user.user_metadata?.name as string) || user.email?.split('@')[0] || 'Uporabnik';
         setAuthUser({ id: user.id, name, email: user.email || '', initials: extractInitials(name) });
-        setUserTier(resolveUserTier(user.email));
+        fetchUserTier(user.id).then(setUserTier);
       } else {
         setAuthUser(null);
         setUserTier('gost');
@@ -361,20 +320,6 @@ END:VCARD`;
         {/* DECOUPLED MODULAR NAVIGATION TABS */}
         <div className="p-1.5 bg-white border border-slate-200/90 rounded-2xl shadow-xs overflow-x-auto scrollbar-none">
           <nav className="flex space-x-1 min-w-max">
-            {/* Tab 0: UPN QR */}
-            <button
-              type="button"
-              onClick={() => setActiveModule('upn')}
-              className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
-                activeModule === 'upn'
-                  ? 'bg-[#0066CC] text-white shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
-              }`}
-            >
-              <Landmark className="w-4 h-4" />
-              UPN QR
-            </button>
-
             {/* Tab 1: Spletna stran */}
             <button
               type="button"
@@ -465,10 +410,6 @@ END:VCARD`;
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           {/* LEFT SIDE: ACTIVE MODULE FORM ENTRY */}
           <div className="lg:col-span-7 bg-white border border-slate-200/90 rounded-3xl p-6 sm:p-8 shadow-sm">
-            {activeModule === 'upn' && (
-              <UpnModule data={upnData} onChange={setUpnData} />
-            )}
-
             {activeModule === 'url' && (
               <UrlModule data={urlData} onChange={setUrlData} />
             )}
@@ -530,7 +471,7 @@ END:VCARD`;
         onClose={() => setIsAuthModalOpen(false)}
         onAuthSuccess={(user) => {
           setAuthUser(user);
-          setUserTier(resolveUserTier(user.email));
+          fetchUserTier(user.id).then(setUserTier);
           setIsSavedDrawerOpen(true);
         }}
       />
@@ -561,6 +502,11 @@ END:VCARD`;
         onClose={() => setIsSavedDrawerOpen(false)}
         onSelectRecord={handleSelectRecord}
         userTier={userTier}
+        // ⚠️ To samo optimistično (kozmetično) spremeni prikaz v tej seji — ne pomeni
+        // dejanske nadgradnje. Resnični paket je v Supabase `profiles.tier`, ki ga ta
+        // gumb NE more spremeniti (varovano z RLS + trg_enforce_qr_code_tier). Ob
+        // naslednjem shranjevanju QR kode ali ponovnem nalaganju strani se prikaz
+        // povrne na resnični paket, dokler ne vgradiš pravega plačilnega toka.
         onSelectTier={setUserTier}
         onOpenEnterpriseModal={() => setIsEnterpriseModalOpen(true)}
         onRequireAuth={() => {
