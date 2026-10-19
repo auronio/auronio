@@ -188,7 +188,7 @@ export const PreviewTerminal: React.FC<PreviewTerminalProps> = ({
 
   // Neposredna, zanesljiva pot do preusmeritvene funkcije — obide Render (ki trenutno
   // napačno prezre /r/* pravilo), dokler Render podpora ne razreši svoje napake.
-  const DIRECT_REDIRECT_BASE = 'https://qfqekeeoppgsvyixqhkt.supabase.co/functions/v1/quick-endpoint';
+  const DIRECT_REDIRECT_BASE = 'https://auronio.com/r';
 
   // Effective payload value
   const effectivePayload = React.useMemo(() => {
