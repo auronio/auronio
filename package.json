@@ -5,11 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite --port=3000 --host=0.0.0.0",
-    "build": "VITE_SUPABASE_URL=https://supabase.co VITE_SUPABASE_ANON_KEY=sb_publishable_5bwa2eoodd_xfYkzPZgTvw_DpWJMKoh vite build",
+    "build": "vite build",
 
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
-    "lint": "typescript --noEmit"
+    "lint": "tsc --noEmit"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
