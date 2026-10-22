@@ -8,8 +8,10 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
-  },
+    detectSessionInUrl: true
+  }
 });
+
 
 // ⚠️ OPOMBA (varnostna nadgradnja): prej je bil tu trdo kodiran seznam admin/partner
 // e-mailov, ki ga je brskalnik slepo zaupal. To je bilo javno vidno v repo-ju IN
