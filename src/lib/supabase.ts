@@ -4,6 +4,10 @@ import { QrRecord } from '../types';
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !/^https:\/\/[a-z0-9]+\.supabase\.co$/.test(SUPABASE_URL)) {
+  console.error('Auronio: manjka ali je napačen VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY (preveri .env in Render Environment).');
+}
+
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
     persistSession: true,
