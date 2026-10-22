@@ -1,8 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 import { QrRecord } from '../types';
 
-const supabaseUrl = 'https://supabase.co';
-const supabaseAnonKey = 'PROJ_API_KEY_IZ_SUPABASE_API_NASTAVITEV';
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
