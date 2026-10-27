@@ -28,16 +28,27 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
 // Vedno vrne nekaj uporabnega — če vrstica še ne obstaja (npr. trigger še ni ujel
 // registracije) ali je napaka v povezavi, varno pade nazaj na 'uporabnik'.
 export async function fetchUserTier(userId: string): Promise<import('../types').UserTier> {
+  const valid = ['gost', 'uporabnik', 'partner', 'premium', 'enterprise'];
   try {
+    // 1) Strežniška funkcija ensure_my_profile (migracija 003): ustvari manjkajoči profil in
+    //    admin e-naslovom (s potrjenim emailom) nastavi 'enterprise'.
+    const { data: rpcTier, error: rpcError } = await supabase.rpc('ensure_my_profile');
+    if (!rpcError && typeof rpcTier === 'string' && valid.includes(rpcTier)) {
+      return rpcTier as import('../types').UserTier;
+    }
+    if (rpcError) console.warn('ensure_my_profile ni na voljo (zaženi migracijo 003):', rpcError.message);
+
+    // 2) Rezerva: neposredno branje profila
     const { data, error } = await supabase
       .from('profiles')
       .select('tier')
       .eq('user_id', userId)
       .maybeSingle();
-    if (error || !data?.tier) return 'uporabnik';
-    return data.tier as import('../types').UserTier;
+    if (error) console.warn('Napaka pri branju paketa (profiles.tier):', error.message);
+    if (data?.tier && valid.includes(data.tier)) return data.tier as import('../types').UserTier;
+    return 'uporabnik';
   } catch (err) {
-    console.warn('Napaka pri branju paketa (profiles.tier):', err);
+    console.warn('Napaka pri branju paketa:', err);
     return 'uporabnik';
   }
 }
