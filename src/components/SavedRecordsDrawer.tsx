@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { QrRecord, FolderCategory, UserTier } from '../types';
 import { fetchAllRecords, deleteRecord, syncRecordToSupabase } from '../lib/supabase';
 import { getTierLimits } from '../lib/limits';
+import { foldersCreatedToday, registerFolderCreated, fetchDailyDynamicCount } from '../lib/dailyUsage';
 import { 
   X, 
   ArrowLeft, 
@@ -118,11 +119,16 @@ export const SavedRecordsDrawer: React.FC<SavedRecordsDrawerProps> = ({
     setDraggedRecordId(null);
   };
 
+  const [dailyDynamic, setDailyDynamic] = useState<number>(0);
+
   const loadRecords = async () => {
     setLoading(true);
     const data = await fetchAllRecords();
     setRecords(data);
     setLoading(false);
+    if (Number.isFinite(getTierLimits(userTier).dailyDynamicCodes)) {
+      fetchDailyDynamicCount().then(setDailyDynamic).catch(() => {});
+    }
   };
 
   useEffect(() => {
@@ -197,17 +203,19 @@ export const SavedRecordsDrawer: React.FC<SavedRecordsDrawerProps> = ({
   const limits = React.useMemo(() => getTierLimits(userTier), [userTier]);
 
   // Actions for folders
-  const handleAddFolderClick = () => {
+  const handleAddFolderClick = async () => {
     if (userTier === 'gost') {
       onRequireAuth?.();
       return;
     }
-    if (userTier === 'uporabnik' && customFolders.length >= limits.maxCustomFolders) {
+    // Dnevna omejitev novih map (ponastavi se ob polnoči)
+    if (Number.isFinite(limits.dailyFolders) && (await foldersCreatedToday()) >= limits.dailyFolders) {
       setInterceptModal({ type: 'limit_uporabnik' });
       return;
     }
-    if (userTier === 'premium' && customFolders.length >= limits.maxCustomFolders) {
-      setInterceptModal({ type: 'limit_premium' });
+    // Skupna omejitev map (partner, premium …)
+    if (customFolders.length >= limits.maxCustomFolders) {
+      setInterceptModal({ type: userTier === 'premium' ? 'limit_premium' : 'limit_uporabnik' });
       return;
     }
     setFolderInputName('');
@@ -244,6 +252,7 @@ export const SavedRecordsDrawer: React.FC<SavedRecordsDrawerProps> = ({
         const newName = folderInputName.trim();
         setCustomFolders((prev) => [...prev, newName]);
         setSelectedFolderFilter(newName);
+        registerFolderCreated();
       }
       setInterceptModal({ type: 'none' });
     } else if (interceptModal.type === 'edit_folder') {
@@ -377,15 +386,19 @@ export const SavedRecordsDrawer: React.FC<SavedRecordsDrawerProps> = ({
           <div className="p-4 bg-slate-50 border border-slate-200/90 rounded-2xl flex items-center justify-between">
             <div className="space-y-1">
               <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
-                Aktivne QR kode
+                {Number.isFinite(limits.dailyDynamicCodes) ? 'Dinamične kode danes' : 'Aktivne QR kode'}
               </span>
               <div className="text-2xl font-black text-slate-900">
-                {totalRecordsCount > 0 ? totalRecordsCount : 1}
+                {Number.isFinite(limits.dailyDynamicCodes) ? dailyDynamic : totalRecordsCount > 0 ? totalRecordsCount : 1}
                 <span className="text-xs text-slate-400 font-semibold ml-1">
                   / {limits.codesDisplayCap}
                 </span>
               </div>
-              <span className="text-[10px] text-slate-500 font-medium">Aktivne v sistemu za paket {limits.tierName}</span>
+              <span className="text-[10px] text-slate-500 font-medium">
+                {Number.isFinite(limits.dailyDynamicCodes)
+                  ? 'Števec se ponastavi vsak dan ob polnoči'
+                  : `Aktivne v sistemu za paket ${limits.tierName}`}
+              </span>
             </div>
             <div className="w-12 h-12 rounded-2xl bg-blue-100 text-[#0066CC] flex items-center justify-center">
               <Layers className="w-6 h-6" />
@@ -792,10 +805,10 @@ export const SavedRecordsDrawer: React.FC<SavedRecordsDrawerProps> = ({
                 </div>
                 <div className="space-y-2">
                   <h3 className="text-lg font-extrabold text-slate-900">
-                    Razširitev map v Beta programu
+                    Dnevna meja dosežena
                   </h3>
                   <p className="text-xs text-slate-600 leading-relaxed font-medium bg-slate-50 p-3 rounded-2xl border border-slate-200/80">
-                    Dosegli ste osnovno mejo map. V okviru brezplačnega Auronio Partner pilota lahko preizkusite razširjeno število map in naprednih modulov.
+                    Danes ste že ustvarili dovoljeno število map ali dinamičnih kod. Števec se ponastavi vsak dan ob polnoči. Za več lahko preizkusite Auronio Partner pilot.
                   </p>
                 </div>
                 <div className="pt-2 flex flex-col gap-2">
