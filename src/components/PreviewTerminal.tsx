@@ -329,6 +329,23 @@ export const PreviewTerminal: React.FC<PreviewTerminalProps> = ({
     // Dejansko preveri trenutno število shranjenih kod tega uporabnika proti limitu paketa
     // (ne samo prikaz — resnično blokira shranjevanje, ko je limit dosežen).
     const limits = getTierLimits(userTier);
+
+    // Dnevna omejitev novih dinamičnih kod (ponastavi se ob polnoči).
+    const { slug: pendingSlug } = extractSlugAndTarget(activeModule, moduleData);
+    if (Number.isFinite(limits.dailyDynamicCodes) && pendingSlug) {
+      const usedToday = await fetchDailyDynamicCount();
+      if (usedToday >= limits.dailyDynamicCodes) {
+        setIsSyncing(false);
+        setSyncFeedback({
+          type: 'error',
+          message: `Danes ste že ustvarili ${limits.dailyDynamicCodes} dinamične kode (dnevna meja). Števec se ponastavi ob polnoči.`,
+        });
+        setTimeout(() => setSyncFeedback(null), 6000);
+        return;
+      }
+    }
+
+    // Skupna omejitev shranjenih kod (partner, premium …)
     if (Number.isFinite(limits.maxActiveCodes)) {
       const existingRecords = await fetchAllRecords();
       if (existingRecords.length >= limits.maxActiveCodes) {
