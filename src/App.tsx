@@ -30,7 +30,7 @@ import { AnalyticsModal } from './components/AnalyticsModal';
 import { SavedRecordsDrawer } from './components/SavedRecordsDrawer';
 import { AuthModal } from './components/AuthModal';
 import { Footer } from './components/Footer';
-import { supabase, fetchUserTier } from './lib/supabase';
+import { supabase, fetchUserTier, fetchAllRecords } from './lib/supabase';
 
 import { 
   Globe, 
@@ -58,11 +58,9 @@ export default function App() {
   const [authChecked, setAuthChecked] = useState<boolean>(false);
 
   // Shared Global Custom Folders State
-  const [customFolders, setCustomFolders] = useState<string[]>([
-    'Trženjske kampanje 📈',
-    'Dogodki 🎟️',
-    'Restavracije & Meniji 🍽️',
-  ]);
+  // Mape po meri: nov uporabnik začne brez map (prej so 3 vzorčne mape takoj presegle mejo
+  // 1 mape za brezplačni paket in ustvarjanje nove je bilo vedno blokirano).
+  const [customFolders, setCustomFolders] = useState<string[]>([]);
 
   // Shared QR Customization Style State
   const [qrStyle, setQrStyle] = useState<QrStyleConfig>({
@@ -282,6 +280,53 @@ END:VCARD`;
   const handleScrollToGenerator = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
+
+  // Mape po meri: shranjene v brskalniku za vsakega uporabnika posebej; ob prijavi dodatno
+  // povzamemo imena map iz že shranjenih kod (da mape ostanejo tudi na drugi napravi).
+  const [foldersLoadedFor, setFoldersLoadedFor] = useState<string | null>(null);
+  useEffect(() => {
+    if (!authUser) {
+      setFoldersLoadedFor(null);
+      setCustomFolders([]);
+      return;
+    }
+    let cancelled = false;
+    const key = `auronio_folders_v1:${authUser.id}`;
+    let stored: string[] = [];
+    try {
+      const raw = localStorage.getItem(key);
+      const parsed = raw ? JSON.parse(raw) : [];
+      if (Array.isArray(parsed)) stored = parsed.filter((f) => typeof f === 'string');
+    } catch {
+      /* neveljaven zapis — začnemo prazno */
+    }
+    (async () => {
+      let fromRecords: string[] = [];
+      try {
+        const recs = await fetchAllRecords();
+        fromRecords = recs
+          .map((r) => r.folder as string)
+          .filter((f) => f && f !== 'Vse 📂' && f !== 'Glavna mapa');
+      } catch {
+        /* brez povezave: uporabimo samo lokalni seznam */
+      }
+      if (cancelled) return;
+      setCustomFolders(Array.from(new Set([...stored, ...fromRecords])));
+      setFoldersLoadedFor(authUser.id);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [authUser?.id]);
+
+  useEffect(() => {
+    if (!authUser || foldersLoadedFor !== authUser.id) return;
+    try {
+      localStorage.setItem(`auronio_folders_v1:${authUser.id}`, JSON.stringify(customFolders));
+    } catch {
+      /* polno / onemogočeno shranjevanje — ni kritično */
+    }
+  }, [customFolders, foldersLoadedFor, authUser?.id]);
 
   // Ob nalaganju preveri, ali je uporabnik že prijavljen (obstoječa Supabase seja),
   // in poslušaj spremembe prijave (login/logout/potrditev e-maila) v realnem času.
