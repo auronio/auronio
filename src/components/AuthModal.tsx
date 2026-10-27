@@ -39,7 +39,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
     setLoading(true);
 
     const { data, error: signUpError } = await supabase.auth.signUp({
-      email: regEmail.trim(),
+      email: regEmail.trim().toLowerCase(),
       password: regPassword,
       options: {
         data: { name: regName.trim() },
@@ -54,6 +54,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
       } else {
         setError(signUpError.message);
       }
+      return;
+    }
+
+    // Supabase pri vklopljeni potrditvi emaila za že obstoječ email NE vrne napake (zaščita pred
+    // ugotavljanjem registriranih naslovov), ampak uporabnika z praznim seznamom identities.
+    // Brez tega preverjanja bi aplikacija ob vsaki ponovni registraciji pokazala "potrditev poslana".
+    if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+      setError('Ta email je že registriran. Prijavite se ali ponastavite geslo.');
       return;
     }
 
@@ -80,14 +88,23 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
     setLoading(true);
 
     const { data, error: signInError } = await supabase.auth.signInWithPassword({
-      email: loginEmail.trim(),
+      email: loginEmail.trim().toLowerCase(),
       password: loginPassword,
     });
 
     setLoading(false);
 
     if (signInError) {
-      setError('Napačen email ali geslo.');
+      const msg = signInError.message.toLowerCase();
+      if (msg.includes('invalid login credentials')) {
+        setError('Napačen email ali geslo.');
+      } else if (msg.includes('email not confirmed')) {
+        setError('Email še ni potrjen. Preverite nabiralnik (tudi vsiljeno pošto) in kliknite povezavo za potrditev.');
+      } else if (msg.includes('failed to fetch') || msg.includes('network')) {
+        setError('Ni povezave s strežnikom za prijavo. Poskusite znova.');
+      } else {
+        setError(signInError.message);
+      }
       return;
     }
 
